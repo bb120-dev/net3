@@ -3221,7 +3221,7 @@ async def handle_unlock_reject(update: Update, context: ContextTypes.DEFAULT_TYP
 async def request_unlock_price_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(context.user_data)
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الخيار.")
         return
 
