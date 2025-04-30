@@ -1,4 +1,3 @@
-TOKEN = "8174177417:AAF-ndZWBfJmwtYHJYHV4gnYhgGk0qdSiHw"
 import sqlite3
 import random
 import string
@@ -34,7 +33,7 @@ from payeer_api import PayeerAPI
 from dotenv import load_dotenv
 import os
 load_dotenv()
-
+TOKEN = os.getenv('TOKEN')
 # قراءة القيم
 GMAIL_CHECK_API_URL = os.getenv('GMAIL_CHECK_API_URL')
 GMAIL_CHECK_API_TOKEN = os.getenv('GMAIL_CHECK_API_TOKEN')
