@@ -906,7 +906,7 @@ async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def accounts_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض إحصائيات الحسابات وعدد الحسابات المطلوبة للاسترجاع"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     
