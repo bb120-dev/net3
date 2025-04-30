@@ -395,7 +395,7 @@ async def request_emails_for_deletion(update: Update, context: ContextTypes.DEFA
             context.user_data[key] = False
     """طلب من الأدمن إدخال الإيميلات المراد حذفها"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
 
@@ -452,7 +452,7 @@ async def return_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await admin_panel(update, context)
 async def manage_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
 
@@ -470,7 +470,7 @@ async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data[key] = False
     """تفعيل استقبال النصوص فقط عند إدخال الحسابات"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID  or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID  and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     if "text_handler" in context.user_data:
@@ -573,7 +573,7 @@ async def show_accounts1(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data[key] = False
     """عرض الحسابات مجمعة حسب النوع وكلمة المرور والبريد الاحتياطي، مع عدد الحسابات"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
 
@@ -618,7 +618,7 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data[key] = False
     """تفعيل إدخال الرصيد الأساسي فقط عند الضغط على زر إضافة رصيد"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     
@@ -640,7 +640,7 @@ async def add_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         if key !="text_handler":
             context.user_data[key] = False
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     
@@ -661,7 +661,7 @@ async def add_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYP
 async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالجة طلب إضافة الرصيد الأساسي"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1 or not context.user_data.get("adding_balance", False):
+    if (user_id != ADMIN_ID and user_id !=ADMIN_ID1) or not context.user_data.get("adding_balance", False):
         return
     
     try:
@@ -715,7 +715,7 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def process_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالجة طلب إضافة رصيد الإحالة"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1 or not context.user_data.get("adding_referral", False):
+    if (user_id != ADMIN_ID and user_id !=ADMIN_ID1) or not context.user_data.get("adding_referral", False):
         return
     
     try:
@@ -788,7 +788,7 @@ async def edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def process_edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالجة طلب تعديل الرصيد"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1 or not context.user_data.get("editing_balance", False):
+    if (user_id != ADMIN_ID and user_id !=ADMIN_ID1) or not context.user_data.get("editing_balance", False):
         return
     
     try:
@@ -842,7 +842,7 @@ async def request_ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if key !="text_handler":
             context.user_data[key] = False
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     
@@ -862,7 +862,7 @@ async def request_ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """حظر المستخدم بناءً على الاسم المدخل"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1 or not context.user_data.get("awaiting_ban_username", False):
+    if (user_id != ADMIN_ID and user_id !=ADMIN_ID1) or not context.user_data.get("awaiting_ban_username", False):
         return
     
     username_to_ban = update.message.text.strip()
@@ -890,7 +890,7 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """إلغاء حظر مستخدم والسماح له باستخدام البوت مجددًا"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     
@@ -943,7 +943,7 @@ async def ask_for_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data[key] = False
     """طلب إدخال الأسعار الجديدة عند النقر على زر تحديد الأسعار"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 You do not have permission to use this command.")
         return
 
@@ -971,7 +971,7 @@ async def ask_for_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def save_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """حفظ الأسعار الجديدة في قاعدة البيانات"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 You do not have permission to use this command.")
         return
     if "rate_handler" not in context.user_data:
@@ -1011,7 +1011,7 @@ async def save_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def purchase_requests_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض عدد طلبات الشراء والاسترجاع اليومية والشهرية لكل نوع"""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
 
@@ -3243,7 +3243,7 @@ async def request_unlock_price_update(update: Update, context: ContextTypes.DEFA
 async def process_unlock_price_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(56684)
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1 or not context.user_data.get("awaiting_price_update"):
+    if (user_id != ADMIN_ID and user_id !=ADMIN_ID1) or not context.user_data.get("awaiting_price_update"):
         return
 
     lines = update.message.text.strip().split("\n")
