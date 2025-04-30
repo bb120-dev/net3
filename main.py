@@ -767,7 +767,7 @@ async def edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if key !="text_handler":
             context.user_data[key] = False
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID or user_id !=ADMIN_ID1:
+    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     
