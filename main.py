@@ -50,7 +50,7 @@ async def set_bot_commands(application: Application):
     commands = [
         BotCommand("unban", "إلغاء الحظر")
     ]
-    await application.bot.set_my_commands(commands, scope=BotCommandScopeChat(ADMIN_ID1))
+    await application.bot.set_my_commands(commands, scope=BotCommandScopeChat(ADMIN_ID))
 async def set_user_commands(application: Application):
     """إضافة الأوامر الرسمية لقائمة المستخدم العادي"""
     commands = [
