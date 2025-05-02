@@ -1673,7 +1673,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     sender_balance, lang = sender_data
 
     # التحقق من أن المستلم موجود في قاعدة البيانات
-    cursor.execute("SELECT chat_id FROM users WHERE username = ?", (target_username,))
+    cursor.execute("SELECT username FROM users WHERE username = ?", (target_username,))
     recipient_data = cursor.fetchone()
 
     if not recipient_data:
