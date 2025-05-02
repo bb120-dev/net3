@@ -443,6 +443,7 @@ async def process_email_deletion(update: Update, context: ContextTypes.DEFAULT_T
     if not_found:
         result_msg += "\n\n❌ لم يتم العثور على الإيميلات التالية:\n" + "\n".join(not_found)
 
+    
     await update.message.reply_text(result_msg)
 
 async def return_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
