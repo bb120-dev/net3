@@ -375,18 +375,21 @@ async def change_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ######################################إدارة الحسابات####################################################
 async def show_balance_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
-    cursor.execute("SELECT language FROM users WHERE chat_id = ?", (user_id,))
-    lang = cursor.fetchone()[0]
-    keyboard = [
-        [KeyboardButton("رصيدي" if lang == "ar" else "My Balance")],
-        [KeyboardButton("شحن الرصيد" if lang == "ar" else "Recharge Balance")],
-        [KeyboardButton("إهداء رصيد" if lang == "ar" else "Gift Balance")],
-        [KeyboardButton("العودة" if lang == "ar" else "Back")]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-    message = "💰 اختر ما تريد:" if lang == "ar" else "💰 Choose an option:"
-    await update.message.reply_text(message, reply_markup=reply_markup)
+    try:
+        cursor.execute("SELECT language FROM users WHERE chat_id = ?", (user_id,))
+        lang = cursor.fetchone()[0]
+        keyboard = [
+            [KeyboardButton("رصيدي" if lang == "ar" else "My Balance")],
+            [KeyboardButton("شحن الرصيد" if lang == "ar" else "Recharge Balance")],
+            [KeyboardButton("إهداء رصيد" if lang == "ar" else "Gift Balance")],
+            [KeyboardButton("العودة" if lang == "ar" else "Back")]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+        message = "💰 اختر ما تريد:" if lang == "ar" else "💰 Choose an option:"
+        await update.message.reply_text(message, reply_markup=reply_markup)
+    except:
+        await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
 #############################3
 async def request_emails_for_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE):
