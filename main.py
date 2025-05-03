@@ -635,7 +635,7 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(3)
     # إزالة أي معالج سابق لمنع التداخل
     if "text_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["text_handler"])
+        context.application.remove_handler(context.user_data.get("text_handler", None))
 
     # إضافة معالج `process_balance`
     
@@ -657,7 +657,7 @@ async def add_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # إزالة أي معالج سابق لمنع التداخل
     if "text_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["text_handler"])
+        context.application.remove_handler(context.user_data.get("text_handler", None))
 
     # إضافة معالج `process_referral_balance`
     text_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, process_referral_balance)
