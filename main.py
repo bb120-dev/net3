@@ -1675,7 +1675,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     sender_balance, lang = sender_data
 
     # التحقق من أن المستلم موجود في قاعدة البيانات
-    cursor.execute("SELECT username FROM users WHERE username = ?", (target_username,))
+    cursor.execute("SELECT chat_id FROM users WHERE username = ?", (target_username,))
     recipient_data = cursor.fetchone()
 
     if not recipient_data:
@@ -3300,7 +3300,7 @@ async def process_unlock_price_update(update: Update, context: ContextTypes.DEFA
     if "price_update_handler" in context.user_data:
         context.application.remove_handler(context.user_data["price_update_handler"])
         del context.user_data["price_update_handler"]
-        del context.user_data["text_handler"]
+        
     context.user_data["awaiting_price_update"] = False
 
     # إرسال النتيجة
