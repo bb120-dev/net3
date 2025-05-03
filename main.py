@@ -2561,7 +2561,7 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
                 conn.commit()
                 msg = "♻️ تم تقديم طلب استرجاع الحساب بنجاح!" if lang == "ar" else "♻️ Refund request has been submitted successfully!"
                 keyboard = [
-            [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{user_id}_{acc_id}_{email}")],
+            [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{user_id}_{purchase_id}_{email}")],
             [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{user_id}_{email}")]
         ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
