@@ -1769,6 +1769,9 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
 
     text = update.message.text.strip().split()
     if len(text) != 2:
+        if old_h:
+            context.application.remove_handler(old_h)
+        context.user_data.pop("awaiting_gift", None)
         return await update.message.reply_text(
             "❌ الصيغة غير صحيحة. مثال: `@username 5000`", parse_mode="Markdown"
         )
@@ -1779,6 +1782,9 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         if amount <= 0:
             raise ValueError
     except ValueError:
+        if old_h:
+            context.application.remove_handler(old_h)
+        context.user_data.pop("awaiting_gift", None)
         return await update.message.reply_text(
             "❌ الصيغة غير صحيحة. مثال: `@username 5000`", parse_mode="Markdown"
         )
@@ -1787,6 +1793,9 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     cursor.execute("SELECT balance, language FROM users WHERE chat_id = ?", (user_id,))
     sender = cursor.fetchone()
     if not sender:
+        if old_h:
+            context.application.remove_handler(old_h)
+        context.user_data.pop("awaiting_gift", None)
         return await update.message.reply_text("❌ لم يتم العثور على بيانات حسابك.")
     sender_balance, lang = sender
 
@@ -1794,12 +1803,18 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     cursor.execute("SELECT chat_id FROM users WHERE username = ?", (username,))
     recipient = cursor.fetchone()
     if not recipient:
+        if old_h:
+            context.application.remove_handler(old_h)
+        context.user_data.pop("awaiting_gift", None)
         return await update.message.reply_text("❌ اسم المستخدم غير مسجل.")
     recipient_id = recipient[0]
 
     fee = amount * 0.01
     total = amount + fee
     if sender_balance < total:
+        if old_h:
+            context.application.remove_handler(old_h)
+        context.user_data.pop("awaiting_gift", None)
         return await update.message.reply_text("❌ رصيدك غير كافٍ لإتمام عملية التحويل.")
 
     # تنفيذ التحويل
@@ -3250,9 +3265,6 @@ async def unlock_account_type_handler(update: Update, context: ContextTypes.DEFA
     استقبال نوع الحساب المطلوب فكه مؤقتاً ثم الانتظار لإدخال البريد وكلمة المرور.
     """
     user_id = update.effective_chat.id
-    # صلاحية الأدمن
-    if user_id not in (ADMIN_ID, ADMIN_ID1):
-        return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
     # نظّف أي handler قديم وحالة انتظار سابقة
     old_h = context.user_data.pop("unlock_handler", None)
