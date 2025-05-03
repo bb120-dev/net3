@@ -3183,7 +3183,9 @@ async def handle_unlock_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
 
     try:
+        print(query.data.split("_", 4))
         _, _, user_id, account_type, email = query.data.split("_", 4)
+        
         user_id = int(user_id)
 
         cursor.execute("SELECT price FROM unlock_prices WHERE type = ?", (account_type,))
@@ -3279,6 +3281,7 @@ async def process_unlock_price_update(update: Update, context: ContextTypes.DEFA
 
             if acc_type not in ["gmail", "hotmail", "outlook"]:
                 failed.append(line)
+                print(failed)
                 continue
 
             cursor.execute("""
@@ -3297,6 +3300,7 @@ async def process_unlock_price_update(update: Update, context: ContextTypes.DEFA
     if "price_update_handler" in context.user_data:
         context.application.remove_handler(context.user_data["price_update_handler"])
         del context.user_data["price_update_handler"]
+        del context.user_data["text_handler"]
     context.user_data["awaiting_price_update"] = False
 
     # إرسال النتيجة
