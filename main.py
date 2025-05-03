@@ -2512,7 +2512,7 @@ async def show_retrieve_menu1(update: Update, context: ContextTypes.DEFAULT_TYPE
     if "retrieve_handler" in context.user_data:
         context.application.remove_handler(context.user_data["retrieve_handler"])
         del context.user_data["retrieve_handler"]
-
+    print(1)
     handler = MessageHandler(filters.TEXT & ~filters.COMMAND, process_retrieve_email)
     context.application.add_handler(handler)
     context.user_data["retrieve_handler"] = handler
@@ -2520,12 +2520,12 @@ async def show_retrieve_menu1(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     lang = get_user_language(user_id)
-
+    
     if not context.user_data.get("awaiting_retrieve_email", False):
         return
 
     email = update.message.text.strip()
-
+    print(email)
     # جلب معلومات الشراء
     cursor.execute("""
         SELECT id, account_type, purchase_time, refund_requested 
@@ -2558,6 +2558,18 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
                 cursor.execute("UPDATE purchases SET refund_requested = 1 WHERE id = ?", (purchase_id,))
                 conn.commit()
                 msg = "♻️ تم تقديم طلب استرجاع الحساب بنجاح!" if lang == "ar" else "♻️ Refund request has been submitted successfully!"
+                keyboard = [
+            [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{user_id}_{acc_id}_{email}")],
+            [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{user_id}_{email}")]
+        ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+        
+                await context.bot.send_message(
+                    chat_id=ADMIN_ID1,
+                    text=f"🔔 **طلب استرجاع حساب**\n\n👤 **المستخدم:** {user_id}\n📧 **البريد:** {email}\n📌 **هل تريد قبول الطلب؟**",
+                    parse_mode="Markdown",
+                    reply_markup=reply_markup
+                )
 
     await update.message.reply_text(msg)
 
