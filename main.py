@@ -628,7 +628,7 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text("✍️ أرسل اسم المستخدم والمبلغ الذي تريد إضافته على الشكل التالي:\n\n"
                                     "@username 50.0")
-
+    print(3)
     # إزالة أي معالج سابق لمنع التداخل
     if "text_handler" in context.user_data:
         context.application.remove_handler(context.user_data["text_handler"])
@@ -667,7 +667,7 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     if (user_id != ADMIN_ID and user_id !=ADMIN_ID1) or not context.user_data.get("adding_balance", False):
         return
-    
+    print(4)
     try:
         # استخراج البيانات والتأكد من صحتها
         data = update.message.text.strip().split()
@@ -683,6 +683,8 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data = cursor.fetchone()
         cursor.execute("SELECT chat_id FROM users WHERE referral_code = ?", (target_username,))
         user_data1 = cursor.fetchone()
+        print(user_data)
+        print(user_data1)
         if not user_data and not user_data1:
             await update.message.reply_text(f"⚠️ المستخدم {target_username} غير مسجل في قاعدة البيانات.")
             return
