@@ -2720,8 +2720,10 @@ async def check_gmail_account(email):
 # ✅ قبول طلب الاسترجاع
 async def accept_refund(update: Update, context: CallbackContext):
     query = update.callback_query
+    
     await query.answer()
     data = query.data.split("_")
+    print(data)
     user_id = data[2]
     email = data[4]
 
