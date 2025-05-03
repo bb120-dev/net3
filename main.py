@@ -505,10 +505,12 @@ async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """حفظ الحسابات وإيقاف استقبال النصوص بعد الإدخال"""
     user_id = update.effective_chat.id
+    print(context.user_data)
     if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
     if "save_account" not in context.user_data:
+        print(5)
         return
     data = update.message.text.strip().split("\n")
     if len(data) < 5:
@@ -622,6 +624,7 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data[key] = False
     """تفعيل إدخال الرصيد الأساسي فقط عند الضغط على زر إضافة رصيد"""
     user_id = update.effective_chat.id
+    
     if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
