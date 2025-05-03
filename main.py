@@ -469,6 +469,7 @@ async def manage_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("إدارة الحسابات:\nاختر العملية التي تريد تنفيذها.", reply_markup=reply_markup)
 async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(context.user_data)
     for key in context.user_data:
         if key !="text_handler":
             context.user_data[key] = False
@@ -479,7 +480,7 @@ async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if "text_handler" in context.user_data:
         context.application.remove_handler(context.user_data.get("text_handler", None))
-
+        
     # إنشاء معالج جديد لحفظ الحسابات فقط عند الإدخال
     text_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, save_accounts)
     context.application.add_handler(text_handler)
