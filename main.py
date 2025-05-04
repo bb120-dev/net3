@@ -215,7 +215,7 @@ for currency, rate in default_rates:
 conn.commit()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
-    print(user_id)
+    context.user_data.pop("current_state", None)
     username = update.effective_user.username or f"user_{user_id}"
     args = context.args
 
@@ -234,11 +234,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = cursor.fetchone()
 
     if result:
-        print(1334455)
         lang = result[1] or "ar"
         is_logged_in = result[2]
-        print('is_logged_in',is_logged_in)
-        print('type is_logged_in',type(is_logged_in))
         print(is_logged_in == 1)
         if is_logged_in == 1:
             await main_menu(update, context, lang)
@@ -372,6 +369,59 @@ async def change_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
     await main_menu(update, context, language_code)
 
+######################################################################################
+async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    يوجّه الرسائل الواردة إلى المعالج المناسب
+    بناءً على context.user_data['current_state'].
+    """
+    state = context.user_data.get("current_state")
+    if state == "delete_handler":
+        await process_email_deletion(update, context)
+    elif state == "save_handler":
+        await save_accounts(update, context)
+    elif state == "balance_handler":
+        await process_balance(update, context)
+    elif state == "referral_handler":
+        await process_referral_balance(update, context)
+    elif state == "edit_handler":
+        await process_edit_balance(update, context)
+    elif state == "ban_user":
+        await ban_user(update, context)
+    elif state == "rate_handler":
+        await save_new_rates(update, context)
+    elif state == "custom_handler":
+        await process_custom_username(update, context)
+    elif state == "login_handler":
+        await process_login(update, context)
+    elif state == "gift_handler":
+        await process_gift_balance(update, context)
+    elif state == "awaiting_payeer_txn":
+        await process_payeer_txn_id(update, context)
+    elif state == "awaiting_syriatel_txn":
+        await process_syriatel_txn_id(update, context)
+    elif state == "awaiting_bemo_txn":
+        await process_bemo_txn_id(update, context)
+    elif state == "retrieve_handler":
+        await process_retrieve_email(update, context)
+    elif state == "gmail_check_handler":
+        await process_email_check(update, context)
+    elif state == "unlock_handler":
+        await process_unlock_email(update, context)
+    elif state == "price_update_handler":
+        await process_unlock_price_update(update, context)
+    elif state == "search_handler":
+        await process_username_search(update, context)
+    else:
+        user_id = update.effective_chat.id
+        lang = get_user_language(user_id)
+        messages = {
+            "ar": "⚠️ الأمر غير صحيح. استخدم",
+            "en": "⚠️ Invalid command. "
+        }
+        await update.message.reply_text(messages.get(lang, messages["en"]))
+
+
 ######################################إدارة الحسابات####################################################
 async def show_balance_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
@@ -398,18 +448,7 @@ async def request_emails_for_deletion(update: Update, context: ContextTypes.DEFA
     # صلاحية الأدمن
     if user_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
-
-    # نظّف أي handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("delete_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_email_deletion", None)
-
-    # أضف handler جديد واستعد للانتظار
-    delete_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_email_deletion)
-    context.application.add_handler(delete_h)
-    context.user_data["delete_handler"] = delete_h
-    context.user_data["awaiting_email_deletion"] = True
+    context.user_data["current_state"] = 'delete_handler'
 
     await update.message.reply_text(
         "✍️ أرسل الإيميلات التي تريد حذفها، كل إيميل في سطر منفصل:"
@@ -419,7 +458,8 @@ async def process_email_deletion(update: Update, context: ContextTypes.DEFAULT_T
     """معالجة حذف الإيميلات المُرسَلة وإنهاء الحالة المؤقتة."""
     user_id = update.effective_chat.id
     # تحقق صلاحية الأدمن وحالة الانتظار
-    if user_id not in (ADMIN_ID, ADMIN_ID1) or not context.user_data.get("awaiting_email_deletion"):
+    if user_id not in (ADMIN_ID, ADMIN_ID1) :
+        context.user_data.pop("current_state", None)
         return
 
     emails = update.message.text.splitlines()
@@ -434,28 +474,13 @@ async def process_email_deletion(update: Update, context: ContextTypes.DEFAULT_T
     conn.commit()
 
     # نظِّف الـ handler وحالة الانتظار
-    old_h = context.user_data.pop("delete_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_email_deletion", None)
-
     # أرسل نتيجة العملية
     msg = f"✅ تم حذف {deleted} من أصل {len(emails)} إيميل."
     if not_found:
         msg += "\n❌ لم يتم العثور على:\n" + "\n".join(not_found)
     await update.message.reply_text(msg)
-
-
-
-
-
-
-
-
+    context.user_data.pop("current_state", None)
 async def return_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if "text_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["text_handler"])
-        del context.user_data["text_handler"]
     await admin_panel(update, context)
 async def manage_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
@@ -478,18 +503,7 @@ async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     if user_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
-
-    # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("save_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_save", None)
-
-    # إضافة Handler جديد لالتقاط الإدخال
-    save_h = MessageHandler(filters.TEXT & ~filters.COMMAND, save_accounts)
-    context.application.add_handler(save_h)
-    context.user_data["save_handler"]  = save_h
-    context.user_data["awaiting_save"] = True
+    context.user_data["current_state"] = 'save_handler'
 
     await update.message.reply_text(
         "📌 أرسل الحسابات بالترتيب التالي:\n\n"
@@ -512,11 +526,13 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     حفظ الحسابات الواردة وإيقاف استقبال النصوص بعد الانتهاء.
     """
     user_id = update.effective_chat.id
-    if user_id not in (ADMIN_ID, ADMIN_ID1) or not context.user_data.get("awaiting_save"):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
+        context.user_data.pop("current_state", None)
         return
 
     lines = update.message.text.strip().splitlines()
     if len(lines) < 5:
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(
             "❌ يرجى إرسال البيانات بالترتيب المطلوب:\n\n"
             "1️⃣ نوع الحساب\n"
@@ -569,14 +585,6 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "DELETE FROM pending_requests WHERE account_type = ?", (account_type,)
     )
     conn.commit()
-
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("save_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_save", None)
-
-    # ردود نهائية
     if duplicate_emails:
         await update.message.reply_text(
             "⚠️ بعض الإيميلات مكررة ولم تُضاف:\n\n" + "\n".join(duplicate_emails)
@@ -586,28 +594,21 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"✅ تم إضافة {success_count} حساب من نوع {account_type} بنجاح وإشعار المستخدمين المنتظرين!"
     )
+    context.user_data.pop("current_state", None)
+
 async def show_accounts1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for key in context.user_data:
-        if key !="text_handler":
-            context.user_data[key] = False
+
     """عرض الحسابات مجمعة حسب النوع وكلمة المرور والبريد الاحتياطي، مع عدد الحسابات"""
     user_id = update.effective_chat.id
     if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
         return
-
-    # تعطيل استقبال أي نصوص عند تنفيذ زر آخر
-    if "text_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["text_handler"])
-        del context.user_data["text_handler"]
-
     cursor.execute("SELECT account_type, email, password, recovery FROM accounts ORDER BY account_type, password, recovery")
     accounts = cursor.fetchall()
     
     if not accounts:
         await update.message.reply_text("❌ لا توجد حسابات متاحة حاليًا.")
         return
-    
     grouped_accounts = {}
     for account in accounts:
         account_type, email, password, recovery = account
@@ -632,25 +633,11 @@ async def show_accounts1(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ##########################################################################################################
 #############################إضافة وتعديل الرصيد #######################################################
 async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    تفعيل استقبال نصّي لإضافة الرصيد الأساسي مؤقتاً للأدمن.
-    """
     user_id = update.effective_chat.id
     if user_id not in (ADMIN_ID, ADMIN_ID1):
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
-
-    # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("balance_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_balance", None)
-
-    # أضف Handler جديد لالتقاط الطلب
-    bal_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_balance)
-    context.application.add_handler(bal_h)
-    context.user_data["balance_handler"]  = bal_h
-    context.user_data["awaiting_balance"] = True
-
+    context.user_data["current_state"] = 'balance_handler'
     await update.message.reply_text(
         "✍️ أرسل اسم المستخدم والمبلغ الذي تريد إضافته بالشكل التالي:\n\n"
         "@username 50.0"
@@ -662,19 +649,9 @@ async def add_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     """
     user_id = update.effective_chat.id
     if user_id not in (ADMIN_ID, ADMIN_ID1):
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
-
-    # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("referral_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_referral", None)
-
-    # أضف Handler جديد لالتقاط طلب الإحالة
-    ref_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_referral_balance)
-    context.application.add_handler(ref_h)
-    context.user_data["referral_handler"]   = ref_h
-    context.user_data["awaiting_referral"]  = True
+    context.user_data["current_state"] = 'referral_handler'
 
     await update.message.reply_text(
         "✍️ أرسل اسم المستخدم والمبلغ لإضافته إلى رصيد الإحالة:\n\n"
@@ -686,7 +663,8 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     معالجة طلب إضافة الرصيد الأساسي وإنهاء حالة الانتظار.
     """
     user_id = update.effective_chat.id
-    if user_id not in (ADMIN_ID, ADMIN_ID1) or not context.user_data.get("awaiting_balance"):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
+        context.user_data.pop("current_state", None)
         return
 
     parts = update.message.text.strip().split()
@@ -699,6 +677,7 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         amount = float(amt)
     except ValueError:
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("❌ المبلغ يجب أن يكون رقمياً.")
 
     # جلب معرف المستخدم
@@ -708,6 +687,7 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     row = cursor.fetchone()
     if not row:
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(f"⚠️ المستخدم {username} غير مسجل.")
 
     target_id = row[0]
@@ -717,13 +697,7 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         (amount, target_id)
     )
     conn.commit()
-
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("balance_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_balance", None)
-
+    context.user_data.pop("current_state", None)
     await update.message.reply_text(f"✅ تم إضافة {amount} إلى @{username}.")
     try:
         await context.bot.send_message(
@@ -738,11 +712,15 @@ async def process_referral_balance(update: Update, context: ContextTypes.DEFAULT
     معالجة طلب إضافة رصيد الإحالة وإنهاء حالة الانتظار.
     """
     user_id = update.effective_chat.id
-    if user_id not in (ADMIN_ID, ADMIN_ID1) or not context.user_data.get("awaiting_referral"):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
+        context.user_data.pop("current_state", None)
+
         return
 
     parts = update.message.text.strip().split()
     if len(parts) != 2:
+        context.user_data.pop("current_state", None)
+
         return await update.message.reply_text(
             "❌ الصيغة غير صحيحة لإحالة: @username 10.0"
         )
@@ -751,11 +729,15 @@ async def process_referral_balance(update: Update, context: ContextTypes.DEFAULT
     try:
         amount = float(amt)
     except ValueError:
+        context.user_data.pop("current_state", None)
+
         return await update.message.reply_text("❌ المبلغ يجب أن يكون رقمياً.")
 
     cursor.execute("SELECT chat_id FROM users WHERE username = ?", (username,))
     row = cursor.fetchone()
     if not row:
+        context.user_data.pop("current_state", None)
+
         return await update.message.reply_text(f"⚠️ المستخدم {username} غير مسجل.")
 
     target_id = row[0]
@@ -765,12 +747,8 @@ async def process_referral_balance(update: Update, context: ContextTypes.DEFAULT
         (amount, target_id)
     )
     conn.commit()
+    context.user_data.pop("current_state", None)
 
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("referral_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_referral", None)
 
     await update.message.reply_text(f"✅ تم إضافة {amount} إلى رصيد الإحالة @{username}.")
     try:
@@ -786,19 +764,10 @@ async def edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     user_id = update.effective_chat.id
     if user_id not in (ADMIN_ID, ADMIN_ID1):
+        context.user_data.pop("current_state", None)
+
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
-
-    # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("edit_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_edit", None)
-
-    # أضف Handler جديد لالتقاط طلب التعديل
-    edit_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_edit_balance)
-    context.application.add_handler(edit_h)
-    context.user_data["edit_handler"]   = edit_h
-    context.user_data["awaiting_edit"]  = True
+    context.user_data["current_state"] = 'edit_handler'
 
     await update.message.reply_text(
         "✍️ أرسل اسم المستخدم والمبلغ الجديد للرصيد بالشكل التالي:\n\n"
@@ -810,11 +779,13 @@ async def process_edit_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     معالجة طلب تعديل رصيد المستخدم وإنهاء حالة الانتظار.
     """
     user_id = update.effective_chat.id
-    if user_id not in (ADMIN_ID, ADMIN_ID1) or not context.user_data.get("awaiting_edit"):
-        return
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
+        context.user_data.pop("current_state", None)
+        return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
     parts = update.message.text.strip().split()
     if len(parts) != 2:
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(
             "❌ الصيغة غير صحيحة. مثال: @username 100.0"
         )
@@ -823,12 +794,14 @@ async def process_edit_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         new_balance = float(amt)
     except ValueError:
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("❌ المبلغ يجب أن يكون رقمياً.")
 
     # جلب معرف المستخدم
     cursor.execute("SELECT chat_id FROM users WHERE username = ?", (username,))
     row = cursor.fetchone()
     if not row:
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(f"⚠️ المستخدم {username} غير مسجل.")
 
     target_id = row[0]
@@ -838,12 +811,7 @@ async def process_edit_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         (new_balance, target_id)
     )
     conn.commit()
-
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("edit_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_edit", None)
+    context.user_data.pop("current_state", None)
 
     await update.message.reply_text(f"✅ تم تعديل رصيد @{username} إلى {new_balance}.")
     try:
@@ -871,17 +839,7 @@ async def request_ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
-    # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("ban_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_ban", None)
-
-    # سجل Handler جديد وانتظر اسم المستخدم
-    ban_h = MessageHandler(filters.TEXT & ~filters.COMMAND, ban_user)
-    context.application.add_handler(ban_h)
-    context.user_data["ban_handler"]   = ban_h
-    context.user_data["awaiting_ban"]  = True
+    context.user_data["current_state"] = 'ban_handler'
 
     await update.message.reply_text("✍️ أرسل اسم المستخدم الذي تريد حظره:")
 
@@ -891,8 +849,9 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     معالجة حظر المستخدم بناءً على الاسم المدخل وإنهاء حالة الانتظار.
     """
     user_id = update.effective_chat.id
-    if user_id not in (ADMIN_ID, ADMIN_ID1) or not context.user_data.get("awaiting_ban"):
-        return
+    if user_id not in (ADMIN_ID, ADMIN_ID1) :
+        context.user_data.pop("current_state", None)
+        return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
     username_to_ban = update.message.text.strip()
 
@@ -916,20 +875,7 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"✅ تم حظر المستخدم {username_to_ban} بنجاح!")
         else:
             await update.message.reply_text(f"⚠️ المستخدم {username_to_ban} غير موجود.")
-
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("ban_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_ban", None)
-
-
-
-
-
-
-
-
+    context.user_data.pop("current_state", None)
 async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """إلغاء حظر مستخدم والسماح له باستخدام البوت مجددًا"""
     user_id = update.effective_chat.id
@@ -989,10 +935,7 @@ async def ask_for_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("🚫 You do not have permission to use this command.")
 
     # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("rate_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_rates", None)
+    context.user_data["current_state"] = 'rate_handler'
 
     # أرسل التعليمات
     await update.message.reply_text(
@@ -1008,22 +951,15 @@ async def ask_for_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-    # أضف Handler جديد لالتقاط النص
-    rate_h = MessageHandler(filters.TEXT & ~filters.COMMAND, save_new_rates)
-    context.application.add_handler(rate_h)
-    context.user_data["rate_handler"]   = rate_h
-    context.user_data["awaiting_rates"] = True
-
 async def save_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    حفظ الأسعار الجديدة في قاعدة البيانات وإنهاء حالة الانتظار.
-    """
     user_id = update.effective_chat.id
-    if user_id not in (ADMIN_ID, ADMIN_ID1) or not context.user_data.get("awaiting_rates"):
-        return
+    if user_id not in (ADMIN_ID, ADMIN_ID1) :
+        context.user_data.pop("current_state", None)
+        return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
     lines = update.message.text.strip().splitlines()
     if not lines:
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("❌ Please enter the rates correctly.")
 
     updated, failed = [], []
@@ -1049,18 +985,7 @@ async def save_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
     # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("rate_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_rates", None)
-
-
-
-
-
-
-
-
+    context.user_data.pop("current_state", None)
 
 #########################################################################################3
 async def purchase_requests_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1141,13 +1066,19 @@ async def purchase_requests_count(update: Update, context: ContextTypes.DEFAULT_
 
 #############################################################زبون
 #############################اللغة
-def generate_username():
-    return "Mohammad" + ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-
+def generate_username(update: Update) -> str:
+    tg_username = update.effective_chat.username
+    if tg_username:
+        return "".join(ch for ch in tg_username if ch.isalnum())
+    full_name = update.effective_chat.full_name or ""
+    clean_name = "".join(ch for ch in full_name if ch.isalnum())
+    if clean_name:
+        return clean_name
+    suffix = "".join(random.choices(string.ascii_letters + string.digits, k=6))
+    return "User" + suffix
 def generate_password():
     chars = string.ascii_letters + string.digits + "!#$%^&*()_+=-"
     return ''.join(random.choices(chars, k=10))
-
 
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
@@ -1206,27 +1137,12 @@ async def request_custom_username(update: Update, context: ContextTypes.DEFAULT_
         else "✍️ Please send your desired username:"
     )
 
-    # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("custom_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_custom", None)
-
-    # أضف Handler جديد
-    custom_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_custom_username)
-    context.application.add_handler(custom_h)
-    context.user_data["custom_handler"]    = custom_h
-    context.user_data["awaiting_custom"]   = True
-
+    context.user_data["current_state"] = 'custom_handler'
     await update.message.reply_text(prompt)
 
 async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    معالجة الاسم المرسل وإنهاء حالة الانتظار.
-    """
     user_id = update.effective_chat.id
-    if not context.user_data.get("awaiting_custom"):
-        return
+    
 
     username      = update.message.text.strip()
     password      = generate_password()
@@ -1244,14 +1160,7 @@ async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_
         (user_id, username, password, lang, referral_code, referrer_id)
     )
     conn.commit()
-
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("custom_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_custom", None)
-
-    # عدّ إلى القائمة الرئيسية
+    context.user_data.pop("current_state", None)
     await main_menu(update, context, lang)
 # --- تسجيل الدخول ---
 async def login_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1265,19 +1174,7 @@ async def login_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if lang == "ar"
         else "✍️ Send your username and password on two lines."
     )
-
-    # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("login_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_login", None)
-
-    # أضف Handler جديد لالتقاط بيانات الدخول
-    login_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_login)
-    context.application.add_handler(login_h)
-    context.user_data["login_handler"]   = login_h
-    context.user_data["awaiting_login"]  = True
-
+    context.user_data["current_state"] = 'login_handler'
     await update.message.reply_text(prompt)
 
 async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1286,11 +1183,6 @@ async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     user_id = update.effective_chat.id
     lang = context.user_data.get("language", "ar")
-
-    # تأكد أننا في وضع انتظار تسجيل دخول
-    if not context.user_data.get("awaiting_login"):
-        return
-
     # استخراج السطرين: اسم المستخدم ثم كلمة المرور
     lines = update.message.text.strip().split("\n")
     if len(lines) != 2:
@@ -1299,6 +1191,7 @@ async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if lang == "ar"
             else "❌ Invalid format."
         )
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(msg_err)
 
     username, password = lines
@@ -1325,10 +1218,7 @@ async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg_fail)
 
     # نظّف Handler وحالة الانتظار بعد المحاولة
-    old_h = context.user_data.pop("login_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_login", None)
+    context.user_data.pop("current_state", None)
 #######################################################################################
 #################################################################3حساباتي
 async def show_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1733,10 +1623,7 @@ async def ask_for_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     lang = row[0] if row else "ar"
 
     # نظّف أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("gift_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_gift", None)
+    
 
     # رسالة التعليمات حسب اللغة
     prompts = {
@@ -1751,27 +1638,16 @@ async def ask_for_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
             "💡 **1% transfer fee will be deducted from the amount.**"
         )
     }
+    context.user_data["current_state"] = 'gift_handler'
     await update.message.reply_text(prompts.get(lang, prompts["ar"]), parse_mode="Markdown")
-
-    # أضف Handler جديد لالتقاط نص الهدية
-    gift_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_gift_balance)
-    context.application.add_handler(gift_h)
-    context.user_data["gift_handler"]    = gift_h
-    context.user_data["awaiting_gift"]   = True
-
 async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة تحويل الرصيد مع خصم 1% رسوم وإنهاء حالة الانتظار.
     """
     user_id = update.effective_chat.id
-    if not context.user_data.get("awaiting_gift"):
-        return
-
     text = update.message.text.strip().split()
     if len(text) != 2:
-        if old_h:
-            context.application.remove_handler(old_h)
-        context.user_data.pop("awaiting_gift", None)
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(
             "❌ الصيغة غير صحيحة. مثال: `@username 5000`", parse_mode="Markdown"
         )
@@ -1782,9 +1658,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         if amount <= 0:
             raise ValueError
     except ValueError:
-        if old_h:
-            context.application.remove_handler(old_h)
-        context.user_data.pop("awaiting_gift", None)
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(
             "❌ الصيغة غير صحيحة. مثال: `@username 5000`", parse_mode="Markdown"
         )
@@ -1793,9 +1667,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     cursor.execute("SELECT balance, language FROM users WHERE chat_id = ?", (user_id,))
     sender = cursor.fetchone()
     if not sender:
-        if old_h:
-            context.application.remove_handler(old_h)
-        context.user_data.pop("awaiting_gift", None)
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("❌ لم يتم العثور على بيانات حسابك.")
     sender_balance, lang = sender
 
@@ -1803,18 +1675,14 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     cursor.execute("SELECT chat_id FROM users WHERE username = ?", (username,))
     recipient = cursor.fetchone()
     if not recipient:
-        if old_h:
-            context.application.remove_handler(old_h)
-        context.user_data.pop("awaiting_gift", None)
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("❌ اسم المستخدم غير مسجل.")
     recipient_id = recipient[0]
 
     fee = amount * 0.01
     total = amount + fee
     if sender_balance < total:
-        if old_h:
-            context.application.remove_handler(old_h)
-        context.user_data.pop("awaiting_gift", None)
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text("❌ رصيدك غير كافٍ لإتمام عملية التحويل.")
 
     # تنفيذ التحويل
@@ -1843,12 +1711,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         )
     except:
         pass
-
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("gift_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_gift", None)
+    context.user_data.pop("current_state", None)
 
 
 
@@ -2053,22 +1916,6 @@ async def handle_coinx_network(update: Update, context: ContextTypes.DEFAULT_TYP
         f"📤 الرجاء تحويل المبلغ إلى محفظة {label}:\n`{wallet_address}`\n\n🔢 ثم أرسل رقم المعاملة هنا:",
         parse_mode="Markdown"
     )
-
-    # إزالة أي معالج سابق
-    if context.user_data.get("txn_handler"):
-        try:
-            context.application.remove_handler(context.user_data["txn_handler"])
-        except:
-            pass
-
-    # إنشاء معالج جديد لرقم المعاملة باستخدام partial
-    handler = MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        partial(process_txn_id, network_label=label)
-    )
-    print(handler)
-    context.application.add_handler(handler)
-    context.user_data["txn_handler"] = handler
 async def process_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE, network_label: str):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
@@ -2129,17 +1976,8 @@ async def process_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE, net
         except Exception as e:
             print("[ERROR] CoinX connection error:", str(e))
             await update.message.reply_text(messages[lang]["error"])
-
-    # إزالة المعالج بعد الاستخدام
-    handler = context.user_data.get("txn_handler")
-    if handler:
-        context.application.remove_handler(handler)
-        context.user_data.pop("txn_handler", None)
 async def payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for key in context.user_data:
-        if key !="text_handler":
-            context.user_data[key] = False
-    print(context.user_data)
+    
     user_id = update.effective_chat.id
     method = update.message.text.strip()
 
@@ -2165,7 +2003,7 @@ async def payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     if method in ["CoinX", "كوين إكس"]:
-        context.user_data["awaiting_coinx_network"] = True
+        context.user_data["current_state"] = 'awaiting_coinx_network'
         keyboard = [
             [KeyboardButton("bep20"), KeyboardButton("trc20")],
             [KeyboardButton("coinx"), KeyboardButton("assent")],
@@ -2179,32 +2017,16 @@ async def payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if method == "Payeer":
-        context.user_data["awaiting_payeer_txn"] = True
+        context.user_data["current_state"] = 'awaiting_payeer_txn'
         await update.message.reply_text(payment_info[lang][method], parse_mode="Markdown")
-        if "text_handler" in context.user_data:
-            context.application.remove_handler(context.user_data["text_handler"])
-            del context.user_data["text_handler"]
-        handler = MessageHandler(filters.TEXT & ~filters.COMMAND, process_payeer_txn_id)
-        context.application.add_handler(handler)
-        context.user_data["text_handler"] = handler
-
         return
     if method in ["سيريتيل كاش", "Syriatel Cash"]:
-        context.user_data["awaiting_syriatel_txn"] = True
+        context.user_data["current_state"] = 'awaiting_syriatel_txn'
         await update.message.reply_text(payment_info[lang][method], parse_mode="Markdown")
-
-        # حذف أي معالج سابق
-        if "text_handler" in context.user_data:
-            context.application.remove_handler(context.user_data["text_handler"])
-            del context.user_data["text_handler"]
-        handler = MessageHandler(filters.TEXT & ~filters.COMMAND, process_syriatel_txn_id)
-        context.application.add_handler(handler)
-        context.user_data["text_handler"] = handler
         return
     if method in ["بيمو", "Bemo"]:
-
         bemo_account = "BEMO-56789" 
-        context.user_data["awaiting_bemo_txn"] = True
+        context.user_data["current_state"] = 'awaiting_bemo_txn'
         if lang == "ar":
             msg = (
                 f"📌 قم بالتحويل إلى رقم الحساب التالي:\n"
@@ -2224,15 +2046,6 @@ async def payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(msg, parse_mode="Markdown")
 
-        if "text_handler" in context.user_data:
-            context.application.remove_handler(context.user_data["text_handler"])
-            del context.user_data["text_handler"]
-
-        handler = MessageHandler(filters.TEXT & ~filters.COMMAND, process_bemo_txn_id)
-        context.application.add_handler(handler)
-        context.user_data["text_handler"] = handler
-        
-        print(context.user_data)
         return
 
     if method in payment_info[lang]:
@@ -2245,11 +2058,10 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
    
     user_id = update.effective_chat.id
     message_lines = update.message.text.strip().split("\n")
-    if  not context.user_data.get("awaiting_bemo_txn", False):
-        return
     lang = get_user_language(user_id)
-    if "awaiting_bemo_txn" in context.user_data:
+    if True:
         if len(message_lines) < 2:
+            context.user_data.pop("current_state", None)
             msg = "❌ الرجاء إرسال رقم الحوالة ثم المبلغ في سطرين." if lang == "ar" else "❌ Please send the transfer number and amount in two separate lines."
             await update.message.reply_text(msg)
             return
@@ -2260,6 +2072,7 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             amount_syp = float(amount_syp)
         except:
+            context.user_data.pop("current_state", None)
             await update.message.reply_text("⚠️ المبلغ غير صحيح." if lang == "ar" else "⚠️ Invalid amount.")
             return
 
@@ -2294,6 +2107,7 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
                     "⚠️ This transfer number was used before. The admin will review it."
 
             await update.message.reply_text(warn_msg)
+            context.user_data.pop("current_state", None)
             return
 
         # رقم الحساب المستلم للحوالة
@@ -2326,9 +2140,7 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
             else "✅ Transfer details sent to the admin.\n⏳ Expect confirmation within 6 hours."
 
         await update.message.reply_text(notify_user)
-        if "awaiting_bemo_txn" in context.user_data:
-                context.application.remove_handler(context.user_data["awaiting_bemo_txn"])
-                context.user_data["awaiting_bemo_txn"] = False
+        context.user_data.pop("current_state", None)
 async def bemo_accept(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -2368,8 +2180,6 @@ async def bemo_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
-    if  not context.user_data.get("awaiting_payeer_txn", False):
-        return
     cursor.execute("SELECT language FROM users WHERE chat_id = ?", (user_id,))
     result = cursor.fetchone()
     lang = result[0] if result else "ar"
@@ -2413,17 +2223,10 @@ async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TY
             print("[ERROR] Gmail Payeer Check:", str(e))
             await update.message.reply_text(messages[lang]["error"])
 
-    # إزالة المعالج بعد الاستخدام
-    handler = context.user_data.get("txn_handler")
-    if handler:
-        context.application.remove_handler(handler)
-        context.user_data.pop("txn_handler", None)
+    context.user_data.pop("current_state", None)
 async def process_syriatel_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
-    if  not context.user_data.get("awaiting_syriatel_txn", False):
-        return
-    print("dgdgdg")
     cursor.execute("SELECT language FROM users WHERE chat_id = ?", (user_id,))
     result = cursor.fetchone()
     lang = result[0] if result else "ar"
@@ -2457,6 +2260,7 @@ async def process_syriatel_txn_id(update: Update, context: ContextTypes.DEFAULT_
 
         if not amount_syp:
             await update.message.reply_text(messages[lang]["not_found"])
+            context.user_data.pop("current_state", None)
             return
 
         cursor.execute("SELECT rate FROM currency_rates WHERE currency = 'SYP'")
@@ -2464,6 +2268,7 @@ async def process_syriatel_txn_id(update: Update, context: ContextTypes.DEFAULT_
 
         if not rate_row:
             await update.message.reply_text(messages[lang]["rate_error"])
+            context.user_data.pop("current_state", None)
             return
 
         rate = float(rate_row[0])
@@ -2483,19 +2288,12 @@ async def process_syriatel_txn_id(update: Update, context: ContextTypes.DEFAULT_
         print("[ERROR Syriatel]", str(e))
         await update.message.reply_text(messages[lang]["error"])
 
-    # إزالة المعالج المؤقت
-    handler = context.user_data.get("txn_handler")
-    if handler:
-        context.application.remove_handler(handler)
-        context.user_data.pop("txn_handler", None)
+    context.user_data.pop("current_state", None)
 
 
 async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
-    if not context.user_data.get("awaiting_payeer_txn", False):
-        return
-
     cursor.execute("SELECT language FROM users WHERE chat_id = ?", (user_id,))
     result = cursor.fetchone()
     lang = result[0] if result else "ar"
@@ -2519,6 +2317,7 @@ async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TY
     cursor.execute("SELECT * FROM transactions WHERE txn_id = ?", (txn_id,))
     if cursor.fetchone():
         await update.message.reply_text(messages[lang]["exists"])
+        context.user_data.pop("current_state", None)
         return
 
     try:
@@ -2536,6 +2335,7 @@ async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TY
                     cursor.execute("UPDATE users SET balance = balance + ? WHERE chat_id = ?", (amount, user_id))
                     conn.commit()
                     await update.message.reply_text(messages[lang]["confirmed"] + f"\n💰 {amount} USD")
+                    context.user_data.pop("current_state", None)
                     break
             else:
                 await update.message.reply_text(messages[lang]["not_found"])
@@ -2546,13 +2346,7 @@ async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TY
         print("[ERROR] Payeer API Check:", str(e))
         await update.message.reply_text(messages[lang]["error"])
 
-    # إزالة المعالج بعد الاستخدام
-    handler = context.user_data.get("txn_handler")
-    if handler:
-        context.application.remove_handler(handler)
-        context.user_data.pop("txn_handler", None)
-
-    context.user_data.pop("awaiting_payeer_txn", None)
+    context.user_data.pop("current_state", None)
 
 ###############################################################################################3
 async def confirm_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2647,26 +2441,13 @@ async def show_retrieve_menu1(update: Update, context: ContextTypes.DEFAULT_TYPE
     """
     user_id = update.effective_chat.id
     lang = get_user_language(user_id)
-
-    # نظّف أي Handler قديم وحالة انتظار قديمة
-    old_h = context.user_data.pop("retrieve_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_retrieve", None)
-
-    # أرسل التعليمات
     prompt = (
         "✍️ أرسل البريد الإلكتروني الذي تريد استرجاعه:"
         if lang == "ar"
         else "✍️ Send the email address you want to recover:"
     )
     await update.message.reply_text(prompt)
-
-    # أضف Handler جديد لالتقاط النص
-    retrieve_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_retrieve_email)
-    context.application.add_handler(retrieve_h)
-    context.user_data["retrieve_handler"]      = retrieve_h
-    context.user_data["awaiting_retrieve"]     = True
+    context.user_data["current_state"] = 'retrieve_handler'
 
 async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -2674,9 +2455,6 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
     """
     user_id = update.effective_chat.id
     lang = get_user_language(user_id)
-    if not context.user_data.get("awaiting_retrieve"):
-        return
-
     email = update.message.text.strip()
 
     # جلب بيانات الشراء
@@ -2711,6 +2489,7 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
                     else "❌ Purchase time format error."
                 )
                 await update.message.reply_text(msg)
+                context.user_data.pop("current_state", None)
                 return
 
             allowed = 3 if acct_type == "G1" else 1
@@ -2748,20 +2527,7 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
                 )
 
     await update.message.reply_text(msg)
-
-    # نظّف Handler وحالة الانتظار
-    old_h = context.user_data.pop("retrieve_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_retrieve", None)
-
-
-
-
-
-
-
-
+    context.user_data.pop("current_state", None)
 
 async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query
@@ -3123,21 +2889,8 @@ async def monitor_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE, toke
             break
 ########################################################################################################
 async def request_emails_for_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for key in context.user_data:
-        if key !="text_handler":
-            context.user_data[key] = False
     user_id = update.effective_chat.id
-
-    # إزالة أي معالج سابق
-    if "gmail_check_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["gmail_check_handler"])
-
-    # إضافة المعالج المؤقت
-    
-    check_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, process_email_check)
-    context.application.add_handler(check_handler)
-    context.user_data["gmail_check_handler"] = check_handler
-    context.user_data["awaiting_gmail_check"] = True
+    context.user_data["current_state"] = 'gmail_check_handler'
 
     await update.message.reply_text("✍️ أرسل الإيميلات التي تريد فحصها، كل إيميل في سطر منفصل:")
 import aiohttp
@@ -3174,9 +2927,6 @@ async def check_gmail_account_async(email: str) -> str:
 
 async def process_email_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
-    if not context.user_data.get("awaiting_gmail_check", False):
-        return
-
     emails = update.message.text.strip().split("\n")
     results = []
 
@@ -3186,12 +2936,7 @@ async def process_email_check(update: Update, context: ContextTypes.DEFAULT_TYPE
             result = await check_gmail_account_async(email)
             results.append(result)
 
-    # حذف المعالج المؤقت بعد الانتهاء
-    if "gmail_check_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["gmail_check_handler"])
-        del context.user_data["gmail_check_handler"]
-        context.user_data["awaiting_gmail_check"] = False
-
+    context.user_data.pop("current_state", None)
     await update.message.reply_text("\n".join(results))
 #########################################################################
 async def Unlock_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3265,28 +3010,29 @@ async def unlock_account_type_handler(update: Update, context: ContextTypes.DEFA
     استقبال نوع الحساب المطلوب فكه مؤقتاً ثم الانتظار لإدخال البريد وكلمة المرور.
     """
     user_id = update.effective_chat.id
-
-    # نظّف أي handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("unlock_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_unlock", None)
-
-    # نوع الحساب وإعداد الانتظار
+    context.user_data["current_state"] = 'unlock_handler'
+    lang = get_user_language(user_id)
+    messages = {
+        "ar": (
+            "✉️ الرجاء اختيار نوع البريد الإلكتروني:\n"
+            "1️⃣ Gmail\n"
+            "2️⃣ Hotmail\n"
+            "3️⃣ Outlook"
+        ),
+        "en": (
+            "✉️ Please choose the email type:\n"
+            "1️⃣ Gmail\n"
+            "2️⃣ Hotmail\n"
+            "3️⃣ Outlook"
+        )
+    }
     account_type = update.message.text.strip().lower()
     if account_type not in ("gmail", "hotmail", "outlook"):
-        return  # تجاهل نصوص أخرى
+        return  await update.message.reply_text(messages.get(lang, messages["ar"]))
 
-    context.user_data["unlock_type"]     = account_type
-    context.user_data["awaiting_unlock"] = True
-
-    # أضف handler لالتقاط البريد وكلمة المرور
-    unlock_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_unlock_email)
-    context.application.add_handler(unlock_h)
-    context.user_data["unlock_handler"] = unlock_h
 
     # رسالة التعليمات حسب اللغة
-    lang = get_user_language(user_id)
+    
     prompt = (
         "✉️ أرسل البريد وكلمة المرور في سطرين:\n\nexample@gmail.com\nmypassword123"
         if lang == "ar"
@@ -3299,9 +3045,6 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
     معالجة بيانات فك الحساب وإرسال طلب للمشرف ثم إنهاء حالة الانتظار.
     """
     user_id = update.effective_chat.id
-    if not context.user_data.get("awaiting_unlock"):
-        return
-
     parts = update.message.text.strip().split("\n")
     if len(parts) != 2:
         lang = get_user_language(user_id)
@@ -3310,6 +3053,7 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
             if lang == "ar"
             else "❌ Please send email and password on separate lines."
         )
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(err)
 
     email, password = parts[0].strip(), parts[1].strip()
@@ -3328,6 +3072,7 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
             if lang == "ar"
             else "❌ Insufficient balance to complete the operation."
         )
+        context.user_data.pop("current_state", None)
         return await update.message.reply_text(msg)
 
     # أرسل تأكيد الاستلام
@@ -3362,12 +3107,7 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(kb)
     )
-
-    # نظّف handler وحالة الانتظار
-    old_h = context.user_data.pop("unlock_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_unlock", None)
+    context.user_data.pop("current_state", None)
 
 
 
@@ -3440,20 +3180,11 @@ async def handle_unlock_reject(update: Update, context: ContextTypes.DEFAULT_TYP
 
 ################################################################################3
 async def request_unlock_price_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(context.user_data)
     user_id = update.effective_chat.id
     if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الخيار.")
         return
-
-    # إزالة معالج قديم إن وجد
-    if "price_update_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["price_update_handler"])
-    # إضافة المعالج الجديد المؤقت
-    handler = MessageHandler(filters.TEXT & ~filters.COMMAND, process_unlock_price_update)
-    context.application.add_handler(handler)
-    context.user_data["price_update_handler"] = handler
-    context.user_data["awaiting_price_update"] = True
+    context.user_data["current_state"] = 'price_update_handler'
 
     await update.message.reply_text("✏️ أرسل الأسعار الجديدة بهذا الشكل:\n\n"
                                     "`gmail:1.25`\n"
@@ -3462,10 +3193,9 @@ async def request_unlock_price_update(update: Update, context: ContextTypes.DEFA
                                     "📌 كل نوع في سطر منفصل.",
                                     parse_mode="Markdown")
 async def process_unlock_price_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(56684)
     user_id = update.effective_chat.id
-    if (user_id != ADMIN_ID and user_id !=ADMIN_ID1) or not context.user_data.get("awaiting_price_update"):
-        return
+    if (user_id != ADMIN_ID and user_id !=ADMIN_ID1):
+        return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الخيار.")
 
     lines = update.message.text.strip().split("\n")
     print(lines)
@@ -3480,7 +3210,6 @@ async def process_unlock_price_update(update: Update, context: ContextTypes.DEFA
 
             if acc_type not in ["gmail", "hotmail", "outlook"]:
                 failed.append(line)
-                print(failed)
                 continue
 
             cursor.execute("""
@@ -3494,15 +3223,7 @@ async def process_unlock_price_update(update: Update, context: ContextTypes.DEFA
             failed.append(line)
 
     conn.commit()
-
-    # إنهاء المعالجة المؤقتة
-    if "price_update_handler" in context.user_data:
-        context.application.remove_handler(context.user_data["price_update_handler"])
-        del context.user_data["price_update_handler"]
-        
-    context.user_data["awaiting_price_update"] = False
-
-    # إرسال النتيجة
+    context.user_data.pop("current_state", None)
     response = "✅ تم تحديث الأسعار التالية:\n" + "\n".join(updated)
     if failed:
         response += "\n\n⚠️ لم يتم فهم السطور التالية:\n" + "\n".join(failed)
@@ -3516,28 +3237,11 @@ async def ask_for_username_to_search(update: Update, context: ContextTypes.DEFAU
     طلب اسم المستخدم للبحث عنه مؤقتاً.
     """
     user_id = update.effective_chat.id
+    context.user_data["current_state"] = 'search_handler'
     await update.message.reply_text("✍️ أرسل اسم المستخدم الذي تريد البحث عنه:")
 
-    # إزالة أي Handler قديم وحالة انتظار سابقة
-    old_h = context.user_data.pop("search_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_username_search", None)
-
-    # أضف Handler جديد لالتقاط اسم المستخدم
-    search_h = MessageHandler(filters.TEXT & ~filters.COMMAND, process_username_search)
-    context.application.add_handler(search_h)
-    context.user_data["search_handler"]             = search_h
-    context.user_data["awaiting_username_search"]  = True
 
 async def process_username_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    معالجة البحث عن اسم المستخدم وإنهاء حالة الانتظار.
-    """
-    # تأكد أننا في وضع انتظار البحث
-    if not context.user_data.get("awaiting_username_search"):
-        return
-
     username = update.message.text.strip()
     cursor.execute(
         "SELECT chat_id, balance, credit, language FROM users WHERE username = ?",
@@ -3559,11 +3263,7 @@ async def process_username_search(update: Update, context: ContextTypes.DEFAULT_
 
     await update.message.reply_text(msg, parse_mode="HTML")
 
-    # نظّف Handler وحالة الانتظار بعد الانتهاء
-    old_h = context.user_data.pop("search_handler", None)
-    if old_h:
-        context.application.remove_handler(old_h)
-    context.user_data.pop("awaiting_username_search", None)
+    context.user_data.pop("current_state", None)
 
 
 
@@ -3664,9 +3364,9 @@ def main():
     app.add_handler(CommandHandler("language", change_language))
     app.add_handler(MessageHandler(filters.Regex("^(💰 الأرصدة|💰 Balances)$"), show_balance_menu))
     app.add_handler(MessageHandler(filters.Regex("^(🔍 البحث عن مستخدم)$"), ask_for_username_to_search))
-
-
-
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, general_handler)
+    )
     app.run_polling(timeout=10, poll_interval=1, allowed_updates=Update.ALL_TYPES)
 if __name__ == "__main__":
     main()
