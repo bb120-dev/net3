@@ -1088,7 +1088,7 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lang = "ar" if chosen_language == "العربية" else "en"
         context.user_data["language"] = lang
 
-        username = generate_username()
+        username = generate_username(update)
         password = generate_password()
 
         context.user_data["pending_username"] = username
