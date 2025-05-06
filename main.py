@@ -3340,7 +3340,6 @@ async def process_unlock_price_update(update: Update, context: ContextTypes.DEFA
         response += "\n\n⚠️ لم يتم فهم السطور التالية:\n" + "\n".join(failed)
 
     await update.message.reply_text(response)
-@require_not_banned
 async def post_init(app: Application):
     await set_user_commands(app)
     await set_bot_commands(app)
