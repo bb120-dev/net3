@@ -2956,7 +2956,7 @@ async def create_temp_mail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Start monitoring the inbox
     asyncio.create_task(monitor_inbox(update, context, token))
-@require_not_banne
+@require_not_banned
 async def monitor_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str):
     user_id = update.effective_chat.id
     checked_ids = set()
