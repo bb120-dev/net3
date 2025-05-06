@@ -29,6 +29,7 @@ import hashlib
 from telegram.error import Forbidden
 import time
 from functools import partial
+from functools import wraps
 from payeer_api import PayeerAPI
 from dotenv import load_dotenv
 import os
@@ -98,6 +99,20 @@ cursor.execute("""
 
     )
 """)
+def is_banned(user_id: int) -> bool:
+    cursor.execute("SELECT 1 FROM banned_users WHERE chat_id = ?", (user_id,))
+    return cursor.fetchone() is not None
+
+def require_not_banned(handler):
+    @wraps(handler)
+    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        user_id = update.effective_chat.id
+        if is_banned(user_id):
+            # إذا أحببت، يمكنك إرسال رسالة تنبيهية:
+            # await update.message.reply_text("🚫 أنت محظور ولا يمكنك استخدام هذا الأمر.")
+            return  # نوقف تنفيذ الـ handler
+        return await handler(update, context, *args, **kwargs)
+    return wrapped
 def generate_referral_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
@@ -214,6 +229,7 @@ for currency, rate in default_rates:
     cursor.execute("INSERT OR IGNORE INTO currency_rates (currency, rate) VALUES (?, ?)", (currency, rate))
 
 conn.commit()
+@require_not_banned
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     context.user_data.pop("current_state", None)
@@ -275,7 +291,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Forbidden:
             print(f"⚠️ المستخدم {user_id} حظر البوت.")
 
-
+@require_not_banned
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
     user_id = update.effective_chat.id
     cursor.execute("SELECT username FROM users WHERE chat_id = ?", (user_id,))
@@ -296,6 +312,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: st
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(messages[lang], reply_markup=reply_markup ,parse_mode="HTML")
+@require_not_banned
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [KeyboardButton("عرض الإحصائيات"), KeyboardButton("إدارة الحسابات")],
@@ -307,7 +324,7 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("🔧 **لوحة تحكم الأدمن**:\nاختر من القائمة التالية:", reply_markup=reply_markup)
-
+@require_not_banned
 async def logout_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     lang = get_user_language(user_id)
@@ -320,7 +337,7 @@ async def logout_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
 
     await update.message.reply_text(text, reply_markup=keyboard)
-
+@require_not_banned
 async def handle_logout_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -342,7 +359,7 @@ async def handle_logout_decision(update: Update, context: ContextTypes.DEFAULT_T
     elif query.data == "logout_cancel":
         msg = "❌ تم إلغاء تسجيل الخروج." if lang == "ar" else "❌ Logout cancelled."
         await query.message.edit_text(msg)
-
+@require_not_banned
 async def change_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     text = update.message.text.strip()
@@ -371,6 +388,7 @@ async def change_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await main_menu(update, context, language_code)
 
 ######################################################################################
+@require_not_banned
 async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     يوجّه الرسائل الواردة إلى المعالج المناسب
@@ -424,6 +442,7 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 ######################################إدارة الحسابات####################################################
+@require_not_banned
 async def show_balance_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     try:
@@ -443,6 +462,7 @@ async def show_balance_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
 #############################3
+@require_not_banned
 async def request_emails_for_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """طلب من الأدمن إدخال الإيميلات المراد حذفها مؤقتاً."""
     user_id = update.effective_chat.id
@@ -454,7 +474,7 @@ async def request_emails_for_deletion(update: Update, context: ContextTypes.DEFA
     await update.message.reply_text(
         "✍️ أرسل الإيميلات التي تريد حذفها، كل إيميل في سطر منفصل:"
     )
-
+@require_not_banned
 async def process_email_deletion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """معالجة حذف الإيميلات المُرسَلة وإنهاء الحالة المؤقتة."""
     user_id = update.effective_chat.id
@@ -481,8 +501,10 @@ async def process_email_deletion(update: Update, context: ContextTypes.DEFAULT_T
         msg += "\n❌ لم يتم العثور على:\n" + "\n".join(not_found)
     await update.message.reply_text(msg)
     context.user_data.pop("current_state", None)
+@require_not_banned
 async def return_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await admin_panel(update, context)
+@require_not_banned
 async def manage_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
@@ -497,6 +519,7 @@ async def manage_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("إدارة الحسابات:\nاختر العملية التي تريد تنفيذها.", reply_markup=reply_markup)
+@require_not_banned
 async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     تفعيل استقبال نصوص إدخال الحسابات مؤقتاً للأدمن.
@@ -523,7 +546,7 @@ async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 import io
-
+@require_not_banned
 async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     حفظ الحسابات الواردة وإيقاف استقبال النصوص بعد الانتهاء.
@@ -611,7 +634,7 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     context.user_data.pop("current_state", None)
 
-
+@require_not_banned
 async def show_accounts1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض الحسابات مُجمعة وإرسال الإيميلات في ملف نصي لكل مجموعة."""
     user_id = update.effective_chat.id
@@ -659,6 +682,7 @@ async def show_accounts1(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 ##########################################################################################################
 #############################إضافة وتعديل الرصيد #######################################################
+@require_not_banned
 async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     if user_id not in (ADMIN_ID, ADMIN_ID1):
@@ -669,7 +693,7 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✍️ أرسل اسم المستخدم والمبلغ الذي تريد إضافته بالشكل التالي:\n\n"
         "@username 50.0"
     )
-
+@require_not_banned
 async def add_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     تفعيل استقبال نصّي لإضافة رصيد الإحالة مؤقتاً للأدمن.
@@ -684,7 +708,7 @@ async def add_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         "✍️ أرسل اسم المستخدم والمبلغ لإضافته إلى رصيد الإحالة:\n\n"
         "@username 10.0"
     )
-
+@require_not_banned
 async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة طلب إضافة الرصيد الأساسي وإنهاء حالة الانتظار.
@@ -733,7 +757,7 @@ async def process_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except:
         pass
-
+@require_not_banned
 async def process_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة طلب إضافة رصيد الإحالة وإنهاء حالة الانتظار.
@@ -785,6 +809,7 @@ async def process_referral_balance(update: Update, context: ContextTypes.DEFAULT
         )
     except:
         pass
+@require_not_banned
 async def edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     تفعيل استقبال نصّي لتعديل رصيد المستخدم مؤقتاً للأدمن.
@@ -800,7 +825,7 @@ async def edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✍️ أرسل اسم المستخدم والمبلغ الجديد للرصيد بالشكل التالي:\n\n"
         "@username 100.0"
     )
-
+@require_not_banned
 async def process_edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة طلب تعديل رصيد المستخدم وإنهاء حالة الانتظار.
@@ -858,6 +883,7 @@ async def process_edit_balance(update: Update, context: ContextTypes.DEFAULT_TYP
 
 ###########################################################################################################
 ####################حظر حساب ###############################################################################
+@require_not_banned
 async def request_ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     طلب من الأدمن إدخال اسم المستخدم لحظره مؤقتاً.
@@ -870,7 +896,7 @@ async def request_ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("✍️ أرسل اسم المستخدم الذي تريد حظره:")
 
-
+@require_not_banned
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة حظر المستخدم بناءً على الاسم المدخل وإنهاء حالة الانتظار.
@@ -904,6 +930,7 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text(f"⚠️ المستخدم {username_to_ban} غير موجود.")
     context.user_data.pop("current_state", None)
+@require_not_banned
 async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """إلغاء حظر مستخدم والسماح له باستخدام البوت مجددًا"""
     user_id = update.effective_chat.id
@@ -920,6 +947,7 @@ async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ يرجى إرسال اسم المستخدم بالشكل الصحيح: `/unban @username`")
 #############################################################################################################
 ##################################إحصائيات########################################################
+@require_not_banned
 async def accounts_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض إحصائيات الحسابات وعدد الحسابات المطلوبة للاسترجاع"""
     user_id = update.effective_chat.id
@@ -954,6 +982,7 @@ async def accounts_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     await update.message.reply_text(message, parse_mode="Markdown")
 #######################################################################################################
+@require_not_banned
 async def ask_for_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     طلب إدخال الأسعار الجديدة مؤقتاً للأدمن.
@@ -978,7 +1007,7 @@ async def ask_for_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✅ Send the list now:",
         parse_mode="Markdown"
     )
-
+@require_not_banned
 async def save_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     if user_id not in (ADMIN_ID, ADMIN_ID1) :
@@ -1016,6 +1045,7 @@ async def save_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("current_state", None)
 
 #########################################################################################3
+@require_not_banned
 async def purchase_requests_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض عدد طلبات الشراء والاسترجاع اليومية والشهرية لكل نوع"""
     user_id = update.effective_chat.id
@@ -1094,6 +1124,7 @@ async def purchase_requests_count(update: Update, context: ContextTypes.DEFAULT_
 
 #############################################################زبون
 #############################اللغة
+@require_not_banned
 def generate_username(update: Update) -> str:
     tg_username = update.effective_chat.username
     if tg_username:
@@ -1104,10 +1135,11 @@ def generate_username(update: Update) -> str:
         return clean_name
     suffix = "".join(random.choices(string.ascii_letters + string.digits, k=6))
     return "User" + suffix
+@require_not_banned
 def generate_password():
     chars = string.ascii_letters + string.digits + "!#$%^&*()_+=-"
     return ''.join(random.choices(chars, k=10))
-
+@require_not_banned
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     chosen_language = update.message.text
@@ -1138,6 +1170,7 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg[lang], parse_mode="HTML", reply_markup=reply_markup)
 
 # --- تأكيد وإنشاء الحساب ---
+@require_not_banned
 async def confirm_account_creation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_chat.id
@@ -1154,6 +1187,7 @@ async def confirm_account_creation(update: Update, context: ContextTypes.DEFAULT
         await main_menu(update, context, lang)
 
 # --- اسم مستخدم مخصص ---
+@require_not_banned
 async def request_custom_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     طلب اسم مستخدم مخصص مؤقتاً.
@@ -1167,7 +1201,7 @@ async def request_custom_username(update: Update, context: ContextTypes.DEFAULT_
 
     context.user_data["current_state"] = 'custom_handler'
     await update.message.reply_text(prompt)
-
+@require_not_banned
 async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     
@@ -1191,6 +1225,7 @@ async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_
     context.user_data.pop("current_state", None)
     await main_menu(update, context, lang)
 # --- تسجيل الدخول ---
+@require_not_banned
 async def login_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     طلب تسجيل الدخول: استقبل اسم المستخدم وكلمة المرور في سطرين متتاليين.
@@ -1204,7 +1239,7 @@ async def login_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     context.user_data["current_state"] = 'login_handler'
     await update.message.reply_text(prompt)
-
+@require_not_banned
 async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة بيانات تسجيل الدخول وإنهاء حالة الانتظار.
@@ -1249,6 +1284,7 @@ async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("current_state", None)
 #######################################################################################
 #################################################################3حساباتي
+@require_not_banned
 async def show_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     cursor.execute("SELECT email, password, purchase_time FROM purchases WHERE chat_id = ?", (user_id,))
@@ -1267,6 +1303,7 @@ async def show_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ لا يوجد لديك أي حسابات مشتراة.")
 ######################################################################################إحالة صديق
+@require_not_banned
 async def referral_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     cursor.execute("SELECT referral_code, language FROM users WHERE chat_id = ?", (user_id,))
@@ -1286,6 +1323,7 @@ async def referral_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ لا يمكن العثور على رمز الإحالة الخاص بك.")
 #########################################################################################ؤصيدي
+@require_not_banned
 async def check_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض الرصيد، رابط الإحالة، وعدد الإحالات"""
     user_id = update.effective_chat.id
@@ -1324,6 +1362,7 @@ async def check_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ لم يتم العثور على بيانات حسابك.")
 ################################################################################################
+@require_not_banned
 async def show_currency_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """عرض أسعار العملات الحالية"""
     cursor.execute("SELECT currency, rate FROM currency_rates ORDER BY currency")
@@ -1340,6 +1379,7 @@ async def show_currency_rates(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     await update.message.reply_text(message, parse_mode="Markdown")
 ################################################################################################################
+@require_not_banned
 async def buy_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     cursor.execute("SELECT language FROM users WHERE chat_id = ?", (user_id,))
@@ -1400,7 +1440,7 @@ async def buy_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = ReplyKeyboardMarkup(keyboard_ar if lang == "ar" else keyboard_en, resize_keyboard=True)
     await update.message.reply_text(messages[lang], parse_mode="Markdown", reply_markup=reply_markup)
-
+@require_not_banned
 async def select_account_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     account_type_text = update.message.text.strip()
     mapping = {
@@ -1430,6 +1470,7 @@ async def select_account_type(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"تم اختيار الحساب: {account_type_text}\nالرجاء تحديد العدد المطلوب:",
         reply_markup=reply_markup
     )
+@require_not_banned
 async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     try:
@@ -1515,6 +1556,7 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(messages[lang]["not_available"])
         await context.bot.send_message(chat_id=ADMIN_ID1, text=messages[lang]["notify_admin"])
+@require_not_banned
 async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     email = update.message.text.replace("/buy_account", "").strip()
@@ -1583,6 +1625,7 @@ async def confirm_buy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"✅ تم شراء الحساب:\n\n📧 {email}\n🔑 كلمة المرور: {password}\n📩 البريد الاحتياطي: {recovery}\n💰 السعر: {price} ل.س"
     )
+@require_not_banned
 async def buy_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """شراء الحساب المحدد بعد اختيار المستخدم"""
     query = update.callback_query
@@ -1637,9 +1680,11 @@ async def buy_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     await query.message.edit_text(messages[lang], parse_mode="Markdown")
+@require_not_banned
 async def return_to_prev(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await main_menu(update, context,'ar')
 ########################################################################################################################
+@require_not_banned
 async def ask_for_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     طلب إرسال اسم المستخدم والمبلغ لإهداء الرصيد مؤقتاً.
@@ -1668,6 +1713,7 @@ async def ask_for_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     }
     context.user_data["current_state"] = 'gift_handler'
     await update.message.reply_text(prompts.get(lang, prompts["ar"]), parse_mode="Markdown")
+@require_not_banned
 async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة تحويل الرصيد مع خصم 1% رسوم وإنهاء حالة الانتظار.
@@ -1749,6 +1795,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 ############################################################################################################################
+@require_not_banned
 async def get_temp_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """إنشاء بريد وهمي للمستخدم باستخدام API"""
     user_id = update.effective_chat.id
@@ -1769,6 +1816,7 @@ async def get_temp_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ حدث خطأ أثناء إنشاء البريد. حاول مرة أخرى لاحقًا.")
 #########################################################################################################3
+@require_not_banned
 def match_transaction_id_with_email(transaction_id: str) -> bool:
     client_id = os.getenv('CLIENT_ID') 
     client_secret = os.getenv('CLIENT_SECRET')  
@@ -1798,6 +1846,7 @@ def match_transaction_id_with_email(transaction_id: str) -> bool:
                     return True
     return False
 # ---------- دالة استخراج المبلغ من رقم المعاملة ----------
+@require_not_banned
 def get_amount_by_transaction_id(transaction_id: str) -> float:
     client_id = os.getenv('client_id')
     client_secret = os.getenv('client_secret')
@@ -1827,6 +1876,7 @@ def get_amount_by_transaction_id(transaction_id: str) -> float:
                     return float(amount_match.group(1))
     return 0.0
 # ---------- دالة اختيار وسيلة الدفع ----------
+@require_not_banned
 async def recharge_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     cursor.execute("SELECT language FROM users WHERE chat_id = ?", (user_id,))
@@ -1852,9 +1902,11 @@ async def recharge_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = ReplyKeyboardMarkup(keyboard_ar if lang == "ar" else keyboard_en, resize_keyboard=True)
     await update.message.reply_text(messages[lang], reply_markup=reply_markup)
+@require_not_banned
 def create_coinx_signature(method, uri, body, timestamp, secret_key):
     to_sign = f"{timestamp}{method.upper()}{uri}{body}"
     return hmac.new(secret_key.encode(), to_sign.encode(), hashlib.sha256).hexdigest()
+@require_not_banned
 def get_coinx_deposit_history(access_id, secret_key, transaction_id):
     import hmac
     import hashlib
@@ -1901,6 +1953,7 @@ def get_coinx_deposit_history(access_id, secret_key, transaction_id):
             return {"error": data.get("message", "Unknown error")}
     except Exception as e:
         return {"error": str(e)}
+@require_not_banned
 async def handle_coinx_network(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     text = update.message.text.strip().lower()
@@ -1944,6 +1997,7 @@ async def handle_coinx_network(update: Update, context: ContextTypes.DEFAULT_TYP
         f"📤 الرجاء تحويل المبلغ إلى محفظة {label}:\n`{wallet_address}`\n\n🔢 ثم أرسل رقم المعاملة هنا:",
         parse_mode="Markdown"
     )
+@require_not_banned
 async def process_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE, network_label: str):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
@@ -2004,6 +2058,7 @@ async def process_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE, net
         except Exception as e:
             print("[ERROR] CoinX connection error:", str(e))
             await update.message.reply_text(messages[lang]["error"])
+@require_not_banned
 async def payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = update.effective_chat.id
@@ -2082,6 +2137,7 @@ async def payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("❌ طريقة الدفع غير معروفة.")
 ######################################################################3
+@require_not_banned
 async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
    
     user_id = update.effective_chat.id
@@ -2169,6 +2225,7 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         await update.message.reply_text(notify_user)
         context.user_data.pop("current_state", None)
+@require_not_banned
 async def bemo_accept(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -2194,6 +2251,7 @@ async def bemo_accept(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(user_id, f"✅ تم تأكيد المعاملة عبر بيمو.\n💰 تم شحن رصيدك: {amount_usd} USD")
     await query.edit_message_text("✅ تم شحن الرصيد بنجاح.")
+@require_not_banned
 async def bemo_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -2205,6 +2263,7 @@ async def bemo_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text("❌ تم رفض المعاملة.")
 
 ################################################################################################33
+@require_not_banned
 async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
@@ -2252,6 +2311,7 @@ async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TY
             await update.message.reply_text(messages[lang]["error"])
 
     context.user_data.pop("current_state", None)
+@require_not_banned
 async def process_syriatel_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
@@ -2318,7 +2378,7 @@ async def process_syriatel_txn_id(update: Update, context: ContextTypes.DEFAULT_
 
     context.user_data.pop("current_state", None)
 
-
+@require_not_banned
 async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     txn_id = update.message.text.strip()
@@ -2377,6 +2437,7 @@ async def process_payeer_txn_id(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data.pop("current_state", None)
 
 ###############################################################################################3
+@require_not_banned
 async def confirm_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = context.user_data.get("pending_purchase")
     if not pending:
@@ -2449,6 +2510,7 @@ async def confirm_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("pending_purchase", None)
     await update.message.reply_text(purchase_message)
     await main_menu(update, context,lang)
+@require_not_banned
 async def cancel_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "pending_purchase" in context.user_data:
         context.user_data.pop("pending_purchase", None)
@@ -2458,11 +2520,13 @@ async def cancel_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ لا توجد عملية شراء لإلغائها.")
         await main_menu(update, context,'ar')
 #################################################################################################
+@require_not_banned
 async def show_retrieve_menu(update, context):
     keyboard = [[InlineKeyboardButton("📋 عرض الحسابات", switch_inline_query_current_chat="")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text("⬇️ اضغط على الزر لعرض الحسابات القابلة للاسترجاع:", reply_markup=reply_markup)
+@require_not_banned
 async def show_retrieve_menu1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     طلب عنوان البريد المطلوب استرجاعه مؤقتاً من المستخدم.
@@ -2476,7 +2540,7 @@ async def show_retrieve_menu1(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await update.message.reply_text(prompt)
     context.user_data["current_state"] = 'retrieve_handler'
-
+@require_not_banned
 async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة طلب استرجاع البريد وإنهاء حالة الانتظار.
@@ -2556,7 +2620,7 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
 
     await update.message.reply_text(msg)
     context.user_data.pop("current_state", None)
-
+@require_not_banned
 async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query
     query_text = query.query.strip()
@@ -2638,6 +2702,7 @@ async def inline_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # ✅ تنفيذ طلب الاسترجاع فور اختيار الحساب
+@require_not_banned
 async def request_refund(update: Update, context: CallbackContext):
     """إرسال طلب استرجاع الحساب إلى الأدمن"""
     
@@ -2680,6 +2745,7 @@ async def request_refund(update: Update, context: CallbackContext):
         await update.message.reply_text(f"📩 تم إرسال طلب الاسترجاع إلى الإدارة للمراجعة.")
 
 # ✅ التحقق مما إذا كان حساب Gmail مغلقًا أو غير نشط باستخدام API
+@require_not_banned
 async def check_gmail_account(email):
     headers = {
         "Content-Type": "application/json",
@@ -2708,6 +2774,7 @@ async def check_gmail_account(email):
     return False
 
 # ✅ قبول طلب الاسترجاع
+@require_not_banned
 async def accept_refund(update: Update, context: CallbackContext):
     query = update.callback_query
     
@@ -2757,6 +2824,7 @@ async def accept_refund(update: Update, context: CallbackContext):
 
     await query.message.edit_text(f"🔔 **تم قبول طلب الاسترجاع للحساب:** {email}.")
 # ✅ رفض طلب الاسترجاع
+@require_not_banned
 async def reject_refund(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -2771,6 +2839,7 @@ async def reject_refund(update: Update, context: CallbackContext):
     await context.bot.send_message(chat_id=user_id, text=f"❌ **تم رفض طلب استرجاع الحساب:** {email}.\n\n⚠️ الحساب لا يزال يعمل.")
     await query.message.edit_text(f"🔔 **تم رفض طلب الاسترجاع للحساب:** {email}.")
 #######################################################3
+@require_not_banned
 async def show_about_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     lang = get_user_language(user_id)
@@ -2790,6 +2859,7 @@ async def show_about_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(text, reply_markup=reply_markup)
+@require_not_banned
 async def contact_admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     lang = get_user_language(user_id)
@@ -2809,6 +2879,7 @@ async def contact_admin_handler(update: Update, context: ContextTypes.DEFAULT_TY
     ])
 
     await update.message.reply_text(text, reply_markup=keyboard)
+@require_not_banned
 async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     lang = get_user_language(user_id)
@@ -2841,38 +2912,40 @@ async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(faq_text, parse_mode="Markdown")
 
 #################################################################################################3
+@require_not_banned
 def random_username(length=10):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
-
+@require_not_banned
 def get_domain():
     res = requests.get(f"{BASE_URL}/domains")
     res.raise_for_status()
     domains = res.json()["hydra:member"]
     return domains[0]["domain"]
-
+@require_not_banned
 def create_account(email, password):
     payload = {"address": email, "password": password}
     res = requests.post(f"{BASE_URL}/accounts", json=payload)
     if res.status_code != 201 and res.status_code != 422:
         res.raise_for_status()
-
+@require_not_banned
 def get_token(email, password):
     payload = {"address": email, "password": password}
     res = requests.post(f"{BASE_URL}/token", json=payload)
     res.raise_for_status()
     return res.json()["token"]
-
+@require_not_banned
 def get_messages(token):
     headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(f"{BASE_URL}/messages", headers=headers)
     res.raise_for_status()
     return res.json()["hydra:member"]
-
+@require_not_banned
 def get_message_details(token, message_id):
     headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(f"{BASE_URL}/messages/{message_id}", headers=headers)
     res.raise_for_status()
     return res.json()
+@require_not_banned
 async def create_temp_mail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
 
@@ -2890,6 +2963,7 @@ async def create_temp_mail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Start monitoring the inbox
     asyncio.create_task(monitor_inbox(update, context, token))
+@require_not_banned
 async def monitor_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str):
     user_id = update.effective_chat.id
     checked_ids = set()
@@ -2916,13 +2990,14 @@ async def monitor_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE, toke
             print(f"❌ خطأ أثناء فحص البريد: {e}")
             break
 ########################################################################################################
+@require_not_banned
 async def request_emails_for_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     context.user_data["current_state"] = 'gmail_check_handler'
 
     await update.message.reply_text("✍️ أرسل الإيميلات التي تريد فحصها، كل إيميل في سطر منفصل:")
 import aiohttp
-
+@require_not_banned
 async def check_gmail_account_async(email: str) -> str:
     headers = {
         "Content-Type": "application/json",
@@ -2952,7 +3027,7 @@ async def check_gmail_account_async(email: str) -> str:
         return f"⚠️ خطأ في الاتصال بـ API: {str(e)}"
 
     return f"⚠️ {email}: لم يتم التحقق"
-
+@require_not_banned
 async def process_email_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     emails = update.message.text.strip().split("\n")
@@ -2967,6 +3042,7 @@ async def process_email_check(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data.pop("current_state", None)
     await update.message.reply_text("\n".join(results))
 #########################################################################
+@require_not_banned
 async def Unlock_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     try:
@@ -3023,16 +3099,19 @@ async def Unlock_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Forbidden:
         print(f"⚠️ المستخدم {user_id} حظر البوت.")
+@require_not_banned
 def get_user_balance(chat_id):
     cursor.execute("SELECT balance,credit FROM users WHERE chat_id = ?", (chat_id,))
     result = cursor.fetchone()
     return result[0] ,result[1]
+@require_not_banned
 def get_user_language(chat_id):
     cursor.execute("SELECT language FROM users WHERE chat_id = ?", (chat_id,))
     result = cursor.fetchone()
     return result[0] if result else "ar"
 
 # === اختيار نوع الحساب للفك ===
+@require_not_banned
 async def unlock_account_type_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     استقبال نوع الحساب المطلوب فكه مؤقتاً ثم الانتظار لإدخال البريد وكلمة المرور.
@@ -3067,7 +3146,7 @@ async def unlock_account_type_handler(update: Update, context: ContextTypes.DEFA
         else "✉️ Please send email and password on two lines:\n\nexample@gmail.com\nmypassword123"
     )
     await update.message.reply_text(prompt)
-
+@require_not_banned
 async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     معالجة بيانات فك الحساب وإرسال طلب للمشرف ثم إنهاء حالة الانتظار.
@@ -3145,6 +3224,7 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # === عند ضغط الأدمن "تأكيد" ===
+@require_not_banned
 async def handle_unlock_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -3186,6 +3266,7 @@ async def handle_unlock_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(f"⚠️ خطأ: {e}")
 
 # === عند ضغط الأدمن "رفض" ===
+@require_not_banned
 async def handle_unlock_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -3207,6 +3288,7 @@ async def handle_unlock_reject(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text(f"⚠️ خطأ: {e}")
 
 ################################################################################3
+@require_not_banned
 async def request_unlock_price_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
@@ -3220,6 +3302,7 @@ async def request_unlock_price_update(update: Update, context: ContextTypes.DEFA
                                     "`outlook:0.65`\n\n"
                                     "📌 كل نوع في سطر منفصل.",
                                     parse_mode="Markdown")
+@require_not_banned
 async def process_unlock_price_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     if (user_id != ADMIN_ID and user_id !=ADMIN_ID1):
@@ -3257,9 +3340,11 @@ async def process_unlock_price_update(update: Update, context: ContextTypes.DEFA
         response += "\n\n⚠️ لم يتم فهم السطور التالية:\n" + "\n".join(failed)
 
     await update.message.reply_text(response)
+@require_not_banned
 async def post_init(app: Application):
     await set_user_commands(app)
     await set_bot_commands(app)
+@require_not_banned
 async def ask_for_username_to_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     طلب اسم المستخدم للبحث عنه مؤقتاً.
@@ -3268,7 +3353,7 @@ async def ask_for_username_to_search(update: Update, context: ContextTypes.DEFAU
     context.user_data["current_state"] = 'search_handler'
     await update.message.reply_text("✍️ أرسل اسم المستخدم الذي تريد البحث عنه:")
 
-
+@require_not_banned
 async def process_username_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.message.text.strip()
     cursor.execute(
