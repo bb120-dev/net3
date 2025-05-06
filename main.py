@@ -387,7 +387,7 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await process_referral_balance(update, context)
     elif state == "edit_handler":
         await process_edit_balance(update, context)
-    elif state == "ban_user":
+    elif state == "ban_handler":
         await ban_user(update, context)
     elif state == "rate_handler":
         await save_new_rates(update, context)
