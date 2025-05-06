@@ -521,9 +521,12 @@ async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "email2@example.com"
     )
 
+import io
+
 async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     حفظ الحسابات الواردة وإيقاف استقبال النصوص بعد الانتهاء.
+    يرسل قائمة الإيميلات المكررة كملف نصي إذا تجاوزت الحد.
     """
     user_id = update.effective_chat.id
     if user_id not in (ADMIN_ID, ADMIN_ID1):
@@ -547,7 +550,6 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for email in emails:
         email = email.strip()
-        # تحقق من التكرار
         exists_account = cursor.execute(
             "SELECT added_time FROM accounts WHERE email = ?", (email,)
         ).fetchone()
@@ -557,7 +559,7 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if exists_account or exists_purchase:
             ts = exists_account[0] if exists_account else exists_purchase[0]
-            duplicate_emails.append(f"📌 {email} - ⏳ أُضيف أول مرة: {ts}")
+            duplicate_emails.append(f"{email} – أول إضافة: {ts}")
         else:
             cursor.execute(
                 """
@@ -585,16 +587,29 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "DELETE FROM pending_requests WHERE account_type = ?", (account_type,)
     )
     conn.commit()
+
+    # إذا كان هناك مكررات، أرسلها (وقد تكون طويلة جداً)
     if duplicate_emails:
-        await update.message.reply_text(
-            "⚠️ بعض الإيميلات مكررة ولم تُضاف:\n\n" + "\n".join(duplicate_emails)
-        )
+        text = "⚠️ بعض الإيميلات مكررة ولم تُضاف:\n\n" + "\n".join(duplicate_emails)
+        # إذا النص أكبر من حد تيليجرام، أرسله كملف نصي
+        if len(text) > 4000:
+            bio = io.BytesIO(text.encode("utf-8"))
+            bio.name = "duplicates.txt"
+            bio.seek(0)
+            await update.message.reply_document(
+                document=bio,
+                filename="duplicates.txt",
+                caption="⚠️ قائمة الإيميلات المكررة"
+            )
+        else:
+            await update.message.reply_text(text)
 
     success_count = len(emails) - len(duplicate_emails)
     await update.message.reply_text(
         f"✅ تم إضافة {success_count} حساب من نوع {account_type} بنجاح وإشعار المستخدمين المنتظرين!"
     )
     context.user_data.pop("current_state", None)
+
 
 async def show_accounts1(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
