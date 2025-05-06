@@ -1124,7 +1124,7 @@ async def purchase_requests_count(update: Update, context: ContextTypes.DEFAULT_
 
 #############################################################زبون
 #############################اللغة
-@require_not_banned
+
 def generate_username(update: Update) -> str:
     tg_username = update.effective_chat.username
     if tg_username:
@@ -1135,7 +1135,6 @@ def generate_username(update: Update) -> str:
         return clean_name
     suffix = "".join(random.choices(string.ascii_letters + string.digits, k=6))
     return "User" + suffix
-@require_not_banned
 def generate_password():
     chars = string.ascii_letters + string.digits + "!#$%^&*()_+=-"
     return ''.join(random.choices(chars, k=10))
@@ -1816,7 +1815,6 @@ async def get_temp_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ حدث خطأ أثناء إنشاء البريد. حاول مرة أخرى لاحقًا.")
 #########################################################################################################3
-@require_not_banned
 def match_transaction_id_with_email(transaction_id: str) -> bool:
     client_id = os.getenv('CLIENT_ID') 
     client_secret = os.getenv('CLIENT_SECRET')  
@@ -1846,7 +1844,6 @@ def match_transaction_id_with_email(transaction_id: str) -> bool:
                     return True
     return False
 # ---------- دالة استخراج المبلغ من رقم المعاملة ----------
-@require_not_banned
 def get_amount_by_transaction_id(transaction_id: str) -> float:
     client_id = os.getenv('client_id')
     client_secret = os.getenv('client_secret')
@@ -1902,11 +1899,11 @@ async def recharge_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = ReplyKeyboardMarkup(keyboard_ar if lang == "ar" else keyboard_en, resize_keyboard=True)
     await update.message.reply_text(messages[lang], reply_markup=reply_markup)
-@require_not_banned
+
 def create_coinx_signature(method, uri, body, timestamp, secret_key):
     to_sign = f"{timestamp}{method.upper()}{uri}{body}"
     return hmac.new(secret_key.encode(), to_sign.encode(), hashlib.sha256).hexdigest()
-@require_not_banned
+
 def get_coinx_deposit_history(access_id, secret_key, transaction_id):
     import hmac
     import hashlib
@@ -2745,7 +2742,7 @@ async def request_refund(update: Update, context: CallbackContext):
         await update.message.reply_text(f"📩 تم إرسال طلب الاسترجاع إلى الإدارة للمراجعة.")
 
 # ✅ التحقق مما إذا كان حساب Gmail مغلقًا أو غير نشط باستخدام API
-@require_not_banned
+
 async def check_gmail_account(email):
     headers = {
         "Content-Type": "application/json",
@@ -2912,34 +2909,30 @@ async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(faq_text, parse_mode="Markdown")
 
 #################################################################################################3
-@require_not_banned
 def random_username(length=10):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
-@require_not_banned
 def get_domain():
     res = requests.get(f"{BASE_URL}/domains")
     res.raise_for_status()
     domains = res.json()["hydra:member"]
     return domains[0]["domain"]
-@require_not_banned
+
 def create_account(email, password):
     payload = {"address": email, "password": password}
     res = requests.post(f"{BASE_URL}/accounts", json=payload)
     if res.status_code != 201 and res.status_code != 422:
         res.raise_for_status()
-@require_not_banned
 def get_token(email, password):
     payload = {"address": email, "password": password}
     res = requests.post(f"{BASE_URL}/token", json=payload)
     res.raise_for_status()
     return res.json()["token"]
-@require_not_banned
+
 def get_messages(token):
     headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(f"{BASE_URL}/messages", headers=headers)
     res.raise_for_status()
     return res.json()["hydra:member"]
-@require_not_banned
 def get_message_details(token, message_id):
     headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(f"{BASE_URL}/messages/{message_id}", headers=headers)
@@ -2963,7 +2956,7 @@ async def create_temp_mail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Start monitoring the inbox
     asyncio.create_task(monitor_inbox(update, context, token))
-@require_not_banned
+@require_not_banne
 async def monitor_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE, token: str):
     user_id = update.effective_chat.id
     checked_ids = set()
@@ -2997,7 +2990,6 @@ async def request_emails_for_check(update: Update, context: ContextTypes.DEFAULT
 
     await update.message.reply_text("✍️ أرسل الإيميلات التي تريد فحصها، كل إيميل في سطر منفصل:")
 import aiohttp
-@require_not_banned
 async def check_gmail_account_async(email: str) -> str:
     headers = {
         "Content-Type": "application/json",
@@ -3099,12 +3091,11 @@ async def Unlock_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Forbidden:
         print(f"⚠️ المستخدم {user_id} حظر البوت.")
-@require_not_banned
+
 def get_user_balance(chat_id):
     cursor.execute("SELECT balance,credit FROM users WHERE chat_id = ?", (chat_id,))
     result = cursor.fetchone()
     return result[0] ,result[1]
-@require_not_banned
 def get_user_language(chat_id):
     cursor.execute("SELECT language FROM users WHERE chat_id = ?", (chat_id,))
     result = cursor.fetchone()
