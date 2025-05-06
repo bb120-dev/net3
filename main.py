@@ -32,6 +32,7 @@ from functools import partial
 from payeer_api import PayeerAPI
 from dotenv import load_dotenv
 import os
+import io
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
 # قراءة القيم
@@ -612,39 +613,50 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_accounts1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    """عرض الحسابات مجمعة حسب النوع وكلمة المرور والبريد الاحتياطي، مع عدد الحسابات"""
+    """عرض الحسابات مُجمعة وإرسال الإيميلات في ملف نصي لكل مجموعة."""
     user_id = update.effective_chat.id
-    if user_id != ADMIN_ID and user_id !=ADMIN_ID1:
-        await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
-        return
-    cursor.execute("SELECT account_type, email, password, recovery FROM accounts ORDER BY account_type, password, recovery")
-    accounts = cursor.fetchall()
-    
-    if not accounts:
-        await update.message.reply_text("❌ لا توجد حسابات متاحة حاليًا.")
-        return
-    grouped_accounts = {}
-    for account in accounts:
-        account_type, email, password, recovery = account
-        key = (account_type, password, recovery)
-        if key not in grouped_accounts:
-            grouped_accounts[key] = []
-        grouped_accounts[key].append(email)
-    
-    for (account_type, password, recovery), emails in grouped_accounts.items():
-        count = len(emails)
-        message = (
-            f"📋 **نوع الحساب:** {account_type}\n"
-            f"🔢 **عدد الحسابات:** {count}\n"
-            f"🔑 **كلمة المرور:** {password}\n"
-            f"📩 **البريد الاحتياطي:** {recovery}\n\n"
-        )
-        for email in emails:
-            message += f"📧 **البريد:** {email}\n"
-        
-        await update.message.reply_text(message, parse_mode="Markdown")
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
+        return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
+    cursor.execute("""
+        SELECT account_type, email, password, recovery
+        FROM accounts
+        ORDER BY account_type, password, recovery
+    """)
+    rows = cursor.fetchall()
+    if not rows:
+        return await update.message.reply_text("❌ لا توجد حسابات متاحة حاليًا.")
+
+    # جمّع الحسابات حسب النوع، كلمة المرور، والبريد الاحتياطي
+    groups = {}
+    for acct_type, email, pwd, rec in rows:
+        key = (acct_type, pwd, rec)
+        groups.setdefault(key, []).append(email)
+
+    # لكل مجموعة: أرسل الوصف ثم ملف الإيميلات
+    for (acct_type, pwd, rec), emails in groups.items():
+        count = len(emails)
+        header = (
+            f"📋 **نوع الحساب:** {acct_type}\n"
+            f"🔢 **عدد الحسابات:** {count}\n"
+            f"🔑 **كلمة المرور:** {pwd}\n"
+            f"📩 **البريد الاحتياطي:** {rec}\n\n"
+            "⤵️ **قائمة الإيميلات مرفقة في الملف**"
+        )
+        await update.message.reply_text(header, parse_mode="Markdown")
+
+        # جهّز الملف
+        content = "\n".join(emails)
+        bio = io.BytesIO(content.encode("utf-8"))
+        bio.name = f"{acct_type}_{pwd}_{rec}.txt".replace(" ", "_")
+        bio.seek(0)
+
+        # أرسل الملف
+        await update.message.reply_document(
+            document=bio,
+            filename=bio.name,
+            caption=f"📂 إيميلات {acct_type} ({count} حساب)"
+        )
 ##########################################################################################################
 #############################إضافة وتعديل الرصيد #######################################################
 async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -881,6 +893,7 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "SELECT chat_id FROM users WHERE username = ?", (username_to_ban,)
         ).fetchone()
         if row:
+            print('fgfdgdfgfdgdfgfdgfg')
             chat_id = row[0]
             cursor.execute(
                 "INSERT INTO banned_users (username, chat_id) VALUES (?, ?)",
