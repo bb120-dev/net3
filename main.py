@@ -88,7 +88,7 @@ cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER UNIQUE,
-        username TEXT,
+        username TEXT UNIQUE,
         balance REAL DEFAULT 0.0,
         credit REAL DEFAULT 0.0,
         referral_code TEXT UNIQUE,
@@ -2606,7 +2606,7 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
                     [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{user_id}_{purchase_id}")]
                 ]
                 await context.bot.send_message(
-                    chat_id=ADMIN_ID1,
+                    chat_id=ADMIN_ID,
                     text=(
                         "🔔 طلب استرجاع حساب\n"
                         f"👤 المستخدم: {user_id}\n"
