@@ -2602,7 +2602,7 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
                 )
                 # أرسل للأدمن أزرار القبول/الرفض
                 kb = [
-                    [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{user_id}_{purchase_id}")],
+                    [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{user_id}_{purchase_id}_{email}")],
                     [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{user_id}_{purchase_id}")]
                 ]
                 await context.bot.send_message(
@@ -2704,9 +2704,10 @@ async def request_refund(update: Update, context: CallbackContext):
     """إرسال طلب استرجاع الحساب إلى الأدمن"""
     
     message_text = update.message.text.strip()
-
+    print(message_text)
     if message_text.startswith("/request_refund"):
         _, acc_id, email = message_text.split(" ")
+        print(email)
         user_id = update.message.chat_id
 
         # ✅ منع تكرار الطلب لنفس الحساب
