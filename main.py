@@ -1206,7 +1206,7 @@ async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_
     
 
     username      = update.message.text.strip()
-    password      = generate_password()
+    password      = context.user_data.get("pending_password")
     lang          = context.user_data.get("language", "ar")
     referral_code = context.user_data.get("referral_code")
     referrer_id   = context.user_data.get("referrer_id")
