@@ -1180,7 +1180,12 @@ async def confirm_account_creation(update: Update, context: ContextTypes.DEFAULT
     referrer_id = context.user_data.get("referrer_id")
 
     if username and password:
-        cursor.execute("INSERT OR IGNORE INTO users (chat_id, username, password, language, referral_code, referrer_id,is_logged_in) VALUES (?, ?, ?, ?, ?, ?,?)",
+        cursor.execute("SELECT chat_id FROM users WHERE username = ?", (username,))
+        existing = cursor.fetchone()
+        if existing and existing[0] != user_id:
+            await update.message.reply_text("⚠️ اسم المستخدم هذا محجوز بالفعل، الرجاء اختيار اسم مستخدم آخر.")
+            return
+        cursor.execute("INSERT OR REPLACE INTO users (chat_id, username, password, language, referral_code, referrer_id,is_logged_in) VALUES (?, ?, ?, ?, ?, ?,?)",
                        (user_id, username, password, lang, referral_code, referrer_id,1))
         conn.commit()
         await main_menu(update, context, lang)
@@ -1212,16 +1217,30 @@ async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_
     referrer_id   = context.user_data.get("referrer_id")
 
     # أضف المستخدم إلى قاعدة البيانات
+    cursor.execute("SELECT chat_id FROM users WHERE username = ?", (username,))
+    existing = cursor.fetchone()
+    if existing and existing[0] != user_id:
+        await update.message.reply_text("⚠️ اسم المستخدم هذا محجوز بالفعل، الرجاء اختيار اسم مستخدم آخر.")
+        return
+
+    # 2. إذا لم يكن موجوداً أو كان هذا نفس المستخدم، أدخل أو حدّث السجل
     cursor.execute(
         """
-        INSERT OR IGNORE INTO users
+        INSERT OR REPLACE INTO users
         (chat_id, username, password, language, referral_code, referrer_id, is_logged_in)
         VALUES (?, ?, ?, ?, ?, ?, 1)
         """,
         (user_id, username, password, lang, referral_code, referrer_id)
     )
     conn.commit()
+
+    # 3. نظّف حالة التسجيل السابقة وانتقل للقائمة الرئيسية
+    context.user_data.pop("pending_username", None)
+    context.user_data.pop("pending_password", None)
+    context.user_data.pop("referral_code", None)
+    context.user_data.pop("referrer_id", None)
     context.user_data.pop("current_state", None)
+
     await main_menu(update, context, lang)
 # --- تسجيل الدخول ---
 @require_not_banned
