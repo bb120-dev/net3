@@ -1285,10 +1285,17 @@ async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if result:
         # تسجيل الدخول وتحديث chat_id
         cursor.execute(
-            "UPDATE users SET is_logged_in = 1, chat_id = ? WHERE username = ?",
-            (user_id, username)
+            "UPDATE users SET is_logged_in = 1 WHERE username = ?",
+            (username)
         )
         conn.commit()
+        await context.bot.send_message(
+                chat_id=result[0],
+                text=(
+                    f"⚠️ تم تسجيل الدخول على الحساب '{username}' "
+                    f"بواسطة المستخدم [{user_id}]."
+                )
+            )
         await main_menu(update, context, lang)
     else:
         msg_fail = (
