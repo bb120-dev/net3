@@ -1286,7 +1286,7 @@ async def process_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # تسجيل الدخول وتحديث chat_id
         cursor.execute(
             "UPDATE users SET is_logged_in = 1 WHERE username = ?",
-            (username)
+            (username,)
         )
         conn.commit()
         await context.bot.send_message(
