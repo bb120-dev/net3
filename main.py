@@ -58,7 +58,7 @@ from telegram.ext import (
 )
 
 # ———— مكتبات التحقق من المعاملات ————
-from payeer_api import PayeerAPIf
+from payeer_api import PayeerAPI
 from payeer_gmail_checker import get_recent_payeer_transactions
 from syriatel_gmail_checker import get_recent_syriatel_transactions
 
