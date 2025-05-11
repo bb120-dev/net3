@@ -1202,7 +1202,7 @@ async def confirm_account_creation(update: Update, context: ContextTypes.DEFAULT
         if existing and existing[0] != user_id:
             await update.message.reply_text("⚠️ اسم المستخدم هذا محجوز بالفعل، الرجاء اختيار اسم مستخدم آخر.")
             return
-        cursor.execute("INSERT OR REPLACE INTO users (chat_id, username, password, language, referral_code, referrer_id,is_logged_in) VALUES (?, ?, ?, ?, ?, ?,?)",
+        cursor.execute("INSERT  INTO users (chat_id, username, password, language, referral_code, referrer_id,is_logged_in) VALUES (?, ?, ?, ?, ?, ?,?)",
                        (user_id, username, password, lang, referral_code, referrer_id,1))
         conn.commit()
         await main_menu(update, context, lang)
@@ -1243,7 +1243,7 @@ async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_
     # 2. إذا لم يكن موجوداً أو كان هذا نفس المستخدم، أدخل أو حدّث السجل
     cursor.execute(
         """
-        INSERT OR REPLACE INTO users
+        INSERT INTO users
         (chat_id, username, password, language, referral_code, referrer_id, is_logged_in)
         VALUES (?, ?, ?, ?, ?, ?, 1)
         """,
