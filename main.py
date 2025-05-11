@@ -233,7 +233,11 @@ conn.commit()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     context.user_data.pop("current_state", None)
-    username = context.user_data.get("username_login")
+    context.user_data.pop("referral_code",None)
+    context.user_data.pop("referrer_id",None)
+    username = context.user_data.get("username_login",None)
+    if username ==None:
+        return
     args = context.args
 
     # التحقق من الحظر
