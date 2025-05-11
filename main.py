@@ -58,8 +58,7 @@ from telegram.ext import (
 )
 
 # ———— مكتبات التحقق من المعاملات ————
-from payeer_api import PayeerAPI
-import config
+from payeer_api import PayeerAPIf
 from payeer_gmail_checker import get_recent_payeer_transactions
 from syriatel_gmail_checker import get_recent_syriatel_transactions
 
@@ -372,7 +371,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
     # مسؤول البوت
-    if user_id in (config.ADMIN_ID, config.ADMIN_ID1):
+    if user_id in (ADMIN_ID, ADMIN_ID1):
         await admin_panel(update, context)
         return
 
@@ -782,7 +781,7 @@ async def request_emails_for_deletion(update: Update, context: ContextTypes.DEFA
     """طلب من الأدمن إدخال الإيميلات المراد حذفها مؤقتاً."""
     user_id = update.effective_user.id
     # صلاحية الأدمن
-    if user_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
     # وضع الحالة للتعامل مع حذف الإيميلات
     context.user_data["current_state"] = "delete_handler"
@@ -795,7 +794,7 @@ async def process_email_deletion(update: Update, context: ContextTypes.DEFAULT_T
     """معالجة حذف الإيميلات المُرسَلة وإنهاء الحالة المؤقتة."""
     user_id = update.effective_user.id
     # تحقق صلاحية الأدمن
-    if user_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
         context.user_data.pop("current_state", None)
         return
 
@@ -854,7 +853,7 @@ async def add_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     يضع البوت في وضع استقبال تفاصيل الحسابات مؤقتًا للأدمن.
     """
     user_id = update.effective_user.id
-    if user_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
     context.user_data["current_state"] = "save_accounts"
     await update.message.reply_text(
@@ -881,7 +880,7 @@ async def save_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ثم يعود مباشرة إلى لوحة الأدمن.
     """
     user_id = update.effective_user.id
-    if user_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
         context.user_data.pop("current_state", None)
         return
 
@@ -972,7 +971,7 @@ async def show_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     وإرسال ملف نصي بإيميلات كل مجموعة للأدمن.
     """
     user_id = update.effective_user.id
-    if user_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if user_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
     # جلب البيانات من قاعدة البيانات باستخدام مدير السياق
@@ -1033,7 +1032,7 @@ async def add_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     يدخل البوت حالة انتظار لإضافة رصيد أساسي للأدمن.
     """
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
     context.user_data["current_state"] = "add_balance"
     await update.message.reply_text(
@@ -1047,7 +1046,7 @@ async def add_referral_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     يدخل البوت حالة انتظار لإضافة رصيد إحالة للأدمن.
     """
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
     context.user_data["current_state"] = "add_referral"
     await update.message.reply_text(
@@ -1129,7 +1128,7 @@ async def edit_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     يدخل البوت في وضع انتظار لتعديل رصيد المستخدم.
     """
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
     context.user_data["current_state"] = "edit_balance"
     await update.message.reply_text(
@@ -1206,7 +1205,7 @@ async def request_ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     يدخل البوت في وضع انتظار لحظر مستخدم.
     """
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
     context.user_data["current_state"] = "ban_user"
     await update.message.reply_text("✍️ أرسل اسم المستخدم الذي تريد حظره (بدون @):")
@@ -1222,7 +1221,7 @@ async def process_ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     username = update.message.text.strip().lstrip("@")
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         context.user_data.pop("current_state", None)
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
@@ -1259,7 +1258,7 @@ async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     يفتح أمر /unban @username لإلغاء حظر مستخدم مباشرة.
     """
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
     args = context.args
@@ -1285,7 +1284,7 @@ async def accounts_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE
     وعدد طلبات استرجاع الحسابات لكل نوع.
     """
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
     # جلب الإحصائيات من قاعدة البيانات
@@ -1329,7 +1328,7 @@ async def ask_for_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     يدخل البوت في وضع انتظار لإدخال أسعار العملات الجديدة للأدمن.
     """
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
     context.user_data["current_state"] = "update_rates"
     await update.message.reply_text(
@@ -1354,7 +1353,7 @@ async def save_new_rates(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     admin_id = update.effective_user.id
-    if admin_id not in (config.ADMIN_ID, config.ADMIN_ID1):
+    if admin_id not in (ADMIN_ID, ADMIN_ID1):
         context.user_data.pop("current_state", None)
         return await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
 
@@ -1913,7 +1912,7 @@ async def process_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # إخطار الأدمن أيضاً
         await update.message.reply_text(notify)
         await context.bot.send_message(
-            chat_id=config.ADMIN_ID1,
+            chat_id=ADMIN_ID1,
             text=(
                 f"🚨 Shortage: {acct_type} – Requested {qty}, Available {avail_cnt}"
             )
@@ -2359,7 +2358,7 @@ async def process_coinx_txn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return await update.message.reply_text(msgs[lang]["exists"])
 
         # 2) استعلام API
-        result = get_coinx_deposit_history(config.ACCESS_ID, config.SECRET_KEY, txn_id)
+        result = get_coinx_deposit_history(ACCESS_ID, SECRET_KEY, txn_id)
         if result.get("error"):
             context.user_data.pop("current_state", None)
             return await update.message.reply_text(msgs[lang]["error"] + "\n" + result["error"])
@@ -2534,7 +2533,7 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"🔔 محاولة جديدة من: <code>{username}</code> (ID: <code>{user_chat_id}</code>)"
         )
         await context.bot.send_message(
-            chat_id=config.ADMIN_ID1,
+            chat_id=ADMIN_ID1,
             text=warn,
             parse_mode="HTML"
         )
@@ -2561,7 +2560,7 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"⏳ في انتظار قرار الإدارة..."
     )
     await context.bot.send_message(
-        chat_id=config.ADMIN_ID1,
+        chat_id=ADMIN_ID1,
         text=admin_msg,
         parse_mode="HTML",
         reply_markup=buttons
@@ -3147,7 +3146,7 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
         f"📅 الشراء: <i>{purchase_time}</i>"
     )
     await context.bot.send_message(
-        chat_id=config.ADMIN_ID1,
+        chat_id=ADMIN_ID1,
         text=admin_text,
         parse_mode="HTML",
         reply_markup=kb
@@ -3356,7 +3355,7 @@ async def request_refund(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🆔 رقم الطلب: <code>{purchase_id}</code>"
     )
     await context.bot.send_message(
-        chat_id=config.ADMIN_ID1,
+        chat_id=ADMIN_ID1,
         text=admin_text,
         parse_mode="HTML",
         reply_markup=keyboard
@@ -3594,8 +3593,8 @@ async def contact_admin_handler(update: Update, context: ContextTypes.DEFAULT_TY
     """
     username = context.user_data.get("username_login")
     lang = get_user_language(username)
-
-    admin_username = config.ADMIN_USERNAME  # مثال: "A5K68R" بدون "@"
+    ADMIN_USERNAME = 'A5K68R'
+    admin_username = ADMIN_USERNAME  # مثال: "A5K68R" بدون "@"
     url = f"https://t.me/{admin_username}"
 
     if lang == "ar":
@@ -3991,7 +3990,7 @@ async def finalize_unlock_request(update: Update, context: ContextTypes.DEFAULT_
         f"💰 السعر: {price:.2f} ل.س"
     )
     await context.bot.send_message(
-        chat_id=config.ADMIN_ID1,
+        chat_id=ADMIN_ID1,
         text=admin_msg,
         parse_mode="Markdown",
         reply_markup=buttons
