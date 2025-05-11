@@ -238,7 +238,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = context.user_data.get("username_login",None)
     args = context.args
     if username ==None:
-         # مستخدم جديد
+        print('dfdsfdsf')
         referral_code = generate_referral_code()
         referrer_id = None
 
@@ -254,15 +254,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # حفظ بيانات التسجيل مؤقتًا في context
         context.user_data["referral_code"] = referral_code
         context.user_data["referrer_id"] = referrer_id
-        context.user_data["username"] = username
+        
 
         # طلب اختيار اللغة
         keyboard = [[KeyboardButton("العربية"), KeyboardButton("English")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         try:
             await update.message.reply_text("🌍 اختر لغتك | Choose your language:", reply_markup=reply_markup)
+            return
         except Forbidden:
             print(f"⚠️ المستخدم {user_id} حظر البوت.")
+            return
     cursor.execute("SELECT chat_id FROM banned_users WHERE username = ?", (username,))
     if cursor.fetchone():
         return
