@@ -448,7 +448,7 @@ async def show_balance_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     username = context.user_data.get("username_login")
     try:
-        cursor.execute("SELECT language FROM users WHERE chat_id = ?", (username,))
+        cursor.execute("SELECT language FROM users WHERE username = ?", (username,))
         lang = cursor.fetchone()[0]
         keyboard = [
             [KeyboardButton("رصيدي" if lang == "ar" else "My Balance")],
