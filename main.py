@@ -4256,7 +4256,7 @@ def main():
     #إدارة الحسابات للادمن
     app.add_handler(MessageHandler(filters.Regex("^(إدارة الحسابات)$"), manage_accounts))
     app.add_handler(MessageHandler(filters.Regex("^(إضافة حسابات)$"), add_accounts))
-    app.add_handler(MessageHandler(filters.Regex("^(عرض الحسابات)$"), show_accounts1)) 
+    app.add_handler(MessageHandler(filters.Regex("^(عرض الحسابات)$"), show_accounts)) 
     app.add_handler(MessageHandler(filters.Regex("^(حذف الحسابات)$"), request_emails_for_deletion))
 
     app.add_handler(MessageHandler(filters.Regex("^(العودة إلى قائمة الأدمن)$"), return_to_main))
@@ -4277,7 +4277,7 @@ def main():
     ####################################################################################################
     #app.add_handler(MessageHandler(filters.Regex("^(العربية|English)$"), set_language))
     ###################################################################################################
-    app.add_handler(MessageHandler(filters.Regex("^(حساباتي|My Accounts)$"), show_accounts))
+   #app.add_handler(MessageHandler(filters.Regex("^(حساباتي|My Accounts)$"), show_accounts))
     app.add_handler(MessageHandler(filters.Regex("^(إحالة صديق|Refer a Friend)$"), referral_link))
     app.add_handler(MessageHandler(filters.Regex("^(رصيدي|My Balance)$"), check_balance))
     ######################################################################################################
