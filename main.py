@@ -1221,7 +1221,7 @@ async def confirm_account_creation(update: Update, context: ContextTypes.DEFAULT
     username = context.user_data.get("pending_username")
     password = context.user_data.get("pending_password")
     lang = context.user_data.get("language", "ar")
-    referral_code = context.user_data.get("referral_code")
+    referral_code = generate_referral_code()
     print(referral_code)
     referrer_id = context.user_data.get("referrer_id")
     context.user_data["username_login"] = username
@@ -1259,10 +1259,9 @@ async def process_custom_username(update: Update, context: ContextTypes.DEFAULT_
     username      = update.message.text.strip()
     password      = context.user_data.get("pending_password")
     lang          = context.user_data.get("language", "ar")
-    referral_code = context.user_data.get("referral_code")
+    referral_code = generate_referral_code()
     referrer_id   = context.user_data.get("referrer_id")
 
-    # أضف المستخدم إلى قاعدة البيانات
     cursor.execute("SELECT chat_id FROM users WHERE username = ?", (username,))
     existing = cursor.fetchone()
     if existing and existing[0] != user_id:
