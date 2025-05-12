@@ -3251,14 +3251,12 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
 
     email, password = parts[0].strip(), parts[1].strip()
     acct_type = context.user_data.get("unlock_type", "gmail")
-
-    # تحقق من رصيد المستخدم
     balance, credit = get_user_balance(username)
     cursor.execute("SELECT price FROM unlock_prices WHERE type = ?", (acct_type,))
     row = cursor.fetchone()
     price = row[0] if row else 0.0
 
-    lang = get_user_language(user_id)
+    lang = get_user_language(username)
     if balance + credit < price:
         msg = (
             "❌ رصيدك غير كافٍ لإتمام العملية."
@@ -3281,14 +3279,14 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
     kb = [
         [
             InlineKeyboardButton("✅ تأكيد فك الحساب",
-                                 callback_data=f"unlock_confirm_{user_id}_{acct_type}_{email}"),
+                                 callback_data=f"unlock_confirm_{username}_{acct_type}_{email}"),
             InlineKeyboardButton("❌ رفض الطلب",
-                                 callback_data=f"unlock_reject_{user_id}_{acct_type}_{email}")
+                                 callback_data=f"unlock_reject_{username}_{acct_type}_{email}")
         ]
     ]
     admin_msg = (
         f"🔔 طلب فك حساب جديد\n\n"
-        f"👤 المستخدم: @{username_part} (ID: {user_id})\n"
+        f"👤 المستخدم: @{username} (ID: {user_id})\n"
         f"📧 الإيميل: `{email}`\n"
         f"🔑 كلمة المرور: `{password}`\n"
         f"📦 النوع: {acct_type.title()}\n"
@@ -3314,39 +3312,39 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
 async def handle_unlock_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    username = context.user_data.get("username_login")
+    
     try:
         print(query.data.split("_", 4))
-        _, _, user_id, account_type, email = query.data.split("_", 4)
+        _, _, username, account_type, email = query.data.split("_", 4)
         
-        user_id = int(user_id)
+        
 
         cursor.execute("SELECT price FROM unlock_prices WHERE type = ?", (account_type,))
         price = cursor.fetchone()[0]
 
-        cursor.execute("SELECT balance FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT chat_id, balance FROM users WHERE username = ?", (username,))
         row = cursor.fetchone()
         if not row:
             await query.edit_message_text("❌ المستخدم غير موجود.")
             return
 
-        balance = row[0]
+        balance = row[1]
         if balance < price:
             await query.edit_message_text("❌ الرصيد غير كافٍ.")
-            await context.bot.send_message(chat_id=user_id, text="❌ لم يتم تنفيذ الطلب بسبب نقص الرصيد.")
+            await context.bot.send_message(chat_id=row[0], text="❌ لم يتم تنفيذ الطلب بسبب نقص الرصيد.")
             return
 
         new_balance = balance - price
         cursor.execute("UPDATE users SET balance = ? WHERE username = ?", (new_balance, username))
         conn.commit()
 
-        lang = get_user_language(user_id)
+        lang = get_user_language(username)
         msg = (
             f"✅ تم تأكيد عملية فك الحساب بنجاح للإيميل: {email}"
             if lang == "ar"
             else f"✅ Unlock process confirmed successfully for: {email}"
         )
-        await context.bot.send_message(chat_id=user_id, text=msg)
+        await context.bot.send_message(chat_id=row[0], text=msg)
         await query.edit_message_text(f"✅ تم تأكيد الطلب وخصم {price}$ من المستخدم.")
     except Exception as e:
         await query.edit_message_text(f"⚠️ خطأ: {e}")
@@ -3358,17 +3356,17 @@ async def handle_unlock_reject(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
 
     try:
-        _, _, user_id, email = query.data.split("_", 3)
-        user_id = int(user_id)
-        lang = get_user_language(user_id)
+        _, _, username, email = query.data.split("_", 3)
+        lang = get_user_language(username)
 
         msg = (
             f"❌ تم رفض طلب فك الحساب للإيميل: {email}.\nيرجى التأكد من البيانات أو التواصل مع الإدارة."
             if lang == "ar"
             else f"❌ Your unlock request for {email} was rejected.\nPlease check your data or contact support."
         )
-
-        await context.bot.send_message(chat_id=user_id, text=msg)
+        cursor.execute("SELECT chat_id, balance FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        await context.bot.send_message(chat_id=row[0], text=msg)
         await query.edit_message_text("❌ تم رفض الطلب.")
     except Exception as e:
         await query.edit_message_text(f"⚠️ خطأ: {e}")
