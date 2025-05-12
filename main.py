@@ -79,8 +79,8 @@ coinx_networks = {
     "assent": "assent-wallet-4567"
 }
 ADMIN_ID = 863274300 
-#ADMIN_ID1 = 1455755529
-ADMIN_ID1 = 863274300
+ADMIN_ID1 = 1455755529
+#ADMIN_ID1 = 863274300
 conn = sqlite3.connect("users.db", check_same_thread=False)
 cursor = conn.cursor()
 
