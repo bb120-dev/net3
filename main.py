@@ -3320,8 +3320,12 @@ async def handle_unlock_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         
 
         cursor.execute("SELECT price FROM unlock_prices WHERE type = ?", (account_type,))
-        price = cursor.fetchone()[0]
-
+        try:
+            price = cursor.fetchone()[0]
+            if not price:
+                price = 0
+        except:
+            price = 0
         cursor.execute("SELECT chat_id, balance FROM users WHERE username = ?", (username,))
         row = cursor.fetchone()
         if not row:
@@ -3337,7 +3341,6 @@ async def handle_unlock_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         new_balance = balance - price
         cursor.execute("UPDATE users SET balance = ? WHERE username = ?", (new_balance, username))
         conn.commit()
-
         lang = get_user_language(username)
         msg = (
             f"✅ تم تأكيد عملية فك الحساب بنجاح للإيميل: {email}"
