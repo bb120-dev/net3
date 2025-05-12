@@ -1789,7 +1789,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
     # جلب بيانات المرسل
-    cursor.execute("SELECT balance, language FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT id ,balance, language FROM users WHERE username = ?", (username,))
     sender = cursor.fetchone()
     if not sender:
         context.user_data.pop("current_state", None)
@@ -1813,7 +1813,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     # تنفيذ التحويل
     cursor.execute(
         "UPDATE users SET balance = balance - ? WHERE id = ?",
-        (total, user_id)
+        (total, sender[0])
     )
     cursor.execute(
         "UPDATE users SET balance = balance + ? WHERE id = ?",
@@ -2605,7 +2605,6 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
     lang = get_user_language(user_id)
     email = update.message.text.strip()
     username = context.user_data.get("username_login")
-    username = context.user_data.get("username_login")
     cursor.execute(
         "SELECT id,balance, credit, language, referrer_id FROM users WHERE username = ?",
         (username,)
@@ -2805,8 +2804,8 @@ async def request_refund(update: Update, context: CallbackContext):
 
         # ✅ إرسال الطلب إلى الأدمن مع أزرار الرد
         keyboard = [
-            [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{user_id}_{acc_id}_{email}")],
-            [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{user_id}_{email}")]
+            [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{username}_{acc_id}_{email}")],
+            [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{username}_{email}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -2856,11 +2855,8 @@ async def accept_refund(update: Update, context: CallbackContext):
     await query.answer()
     data = query.data.split("_")
     print(data)
-    user_id = data[2]
+    username = data[2]
     email = data[4]
-
-    # ✅ جلب بيانات الحساب
-    username = context.user_data.get("username_login")
     cursor.execute(
         "SELECT id,balance, credit, language, referrer_id FROM users WHERE username = ?",
         (username,)
@@ -2887,7 +2883,11 @@ async def accept_refund(update: Update, context: CallbackContext):
     else:
         # إنشاء مستخدم جديد إذا ما كان موجود (اختياري حسب منطقك)
         cursor.execute("INSERT INTO users (chat_id, balance) VALUES (?, ?)", (user_id, price))
-
+    cursor.execute(
+        "SELECT chat_id FROM users WHERE username = ?",
+        (username,)
+    )
+    user_id =cursor.fetchone()[0]
     # ✅ إرسال البيانات إلى المستخدم
     await context.bot.send_message(
         chat_id=user_id,
@@ -2910,9 +2910,8 @@ async def reject_refund(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     data = query.data.split("_")
-    user_id = data[2]
-    email = data[3]
-    username = context.user_data.get("username_login")
+    username = data[2]
+    email = data[4]
     cursor.execute(
         "SELECT id,balance, credit, language, referrer_id FROM users WHERE username = ?",
         (username,)
@@ -2921,7 +2920,11 @@ async def reject_refund(update: Update, context: CallbackContext):
     # ✅ تحديث `refund_requested` إلى 0 ليتمكن المستخدم من طلب الاسترجاع مرة أخرى لاحقًا
     cursor.execute("UPDATE purchases SET refund_requested = 0 WHERE email = ? AND chat_id = ?", (email, result[0]))
     conn.commit()
-
+    cursor.execute(
+        "SELECT chat_id FROM users WHERE username = ?",
+        (username,)
+    )
+    user_id =cursor.fetchone()[0]
     await context.bot.send_message(chat_id=user_id, text=f"❌ **تم رفض طلب استرجاع الحساب:** {email}.\n\n⚠️ الحساب لا يزال يعمل.")
     await query.message.edit_text(f"🔔 **تم رفض طلب الاسترجاع للحساب:** {email}.")
 #######################################################3
