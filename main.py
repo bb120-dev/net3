@@ -79,7 +79,8 @@ coinx_networks = {
     "assent": "assent-wallet-4567"
 }
 ADMIN_ID = 863274300 
-ADMIN_ID1 = 1455755529
+#ADMIN_ID1 = 1455755529
+ADMIN_ID1 = 863274300
 conn = sqlite3.connect("users.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -2211,8 +2212,6 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("⚠️ المبلغ غير صحيح." if lang == "ar" else "⚠️ Invalid amount.")
             return
 
-        username = context.user_data.get("username_login",'N/A')
-
         # تحقق مما إذا كان رقم الحوالة مستخدم سابقاً
         cursor.execute("SELECT user_id, amount, timestamp FROM transactions WHERE txn_id = ?", (txn_id,))
         existing = cursor.fetchone()
@@ -2248,8 +2247,8 @@ async def process_bemo_txn_id(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("✅ تأكيد", callback_data=f"bemo_accept_{user_id}_{txn_id}_{amount_syp}"),
-                InlineKeyboardButton("❌ رفض", callback_data=f"bemo_reject_{user_id}_{txn_id}")
+                InlineKeyboardButton("✅ تأكيد", callback_data=f"bemo_accept_{username}_{txn_id}_{amount_syp}"),
+                InlineKeyboardButton("❌ رفض", callback_data=f"bemo_reject_{username}_{txn_id}")
             ]
         ])
 
@@ -2279,8 +2278,8 @@ async def bemo_accept(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    _, _, user_id, txn_id, amount_syp = query.data.split("_", 4)
-    user_id = int(user_id)
+    _, _, username, txn_id, amount_syp = query.data.split("_", 4)
+    username = username
     amount_syp = float(amount_syp)
 
     # تحويل من SYP إلى USD
@@ -2292,25 +2291,24 @@ async def bemo_accept(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     rate = float(rate_row[0])
     amount_usd = round(amount_syp / rate, 2)
-    username = context.user_data.get("username_login")
-    cursor.execute("SELECT id FROM users WHERE username = ?",(username,))
-    id = cursor.fetchone()[0]
+    cursor.execute("SELECT id,chat_id FROM users WHERE username = ?",(username,))
+    result = cursor.fetchone()
     # تحديث الرصيد
     cursor.execute("UPDATE users SET balance = balance + ? WHERE username = ?", (amount_usd, username))
-    cursor.execute("INSERT INTO transactions (txn_id, user_id, method, amount) VALUES (?, ?, ?, ?)", (txn_id, id, "Bemo", amount_usd))
+    cursor.execute("INSERT INTO transactions (txn_id, user_id, method, amount) VALUES (?, ?, ?, ?)", (txn_id, result[0], "Bemo", amount_usd))
     conn.commit()
 
-    await context.bot.send_message(user_id, f"✅ تم تأكيد المعاملة عبر بيمو.\n💰 تم شحن رصيدك: {amount_usd} USD")
+    await context.bot.send_message(result[1], f"✅ تم تأكيد المعاملة عبر بيمو.\n💰 تم شحن رصيدك: {amount_usd} USD")
     await query.edit_message_text("✅ تم شحن الرصيد بنجاح.")
 @require_not_banned
 async def bemo_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    _, _, user_id, txn_id = query.data.split("_", 3)
-    user_id = int(user_id)
-
-    await context.bot.send_message(user_id, f"❌ لم يتم العثور على حوالة بيمو بالرقم: {txn_id}.")
+    _, _, username, txn_id = query.data.split("_", 3)
+    cursor.execute("SELECT id,chat_id FROM users WHERE username = ?",(username,))
+    result = cursor.fetchone()
+    await context.bot.send_message(result[1], f"❌ لم يتم العثور على حوالة بيمو بالرقم: {txn_id}.")
     await query.edit_message_text("❌ تم رفض المعاملة.")
 
 ################################################################################################33
