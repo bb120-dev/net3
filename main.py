@@ -3185,8 +3185,8 @@ async def Unlock_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Forbidden:
         print(f"⚠️ المستخدم {user_id} حظر البوت.")
 
-def get_user_balance(chat_id):
-    cursor.execute("SELECT balance,credit FROM users WHERE id = ?", (chat_id,))
+def get_user_balance(username):
+    cursor.execute("SELECT balance,credit FROM users WHERE username = ?", (username,))
     result = cursor.fetchone()
     return result[0] ,result[1]
 def get_user_language(username):
@@ -3253,7 +3253,7 @@ async def process_unlock_email(update: Update, context: ContextTypes.DEFAULT_TYP
     acct_type = context.user_data.get("unlock_type", "gmail")
 
     # تحقق من رصيد المستخدم
-    balance, credit = get_user_balance(user_id)
+    balance, credit = get_user_balance(username)
     cursor.execute("SELECT price FROM unlock_prices WHERE type = ?", (acct_type,))
     row = cursor.fetchone()
     price = row[0] if row else 0.0
