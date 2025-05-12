@@ -2600,9 +2600,10 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
     معالجة طلب استرجاع البريد وإنهاء حالة الانتظار.
     """
     user_id = update.effective_chat.id
-    lang = get_user_language(user_id)
-    email = update.message.text.strip()
     username = context.user_data.get("username_login")
+    lang = get_user_language(username)
+    email = update.message.text.strip()
+    
     cursor.execute(
         "SELECT id,balance, credit, language, referrer_id FROM users WHERE username = ?",
         (username,)
@@ -2664,8 +2665,8 @@ async def process_retrieve_email(update: Update, context: ContextTypes.DEFAULT_T
                 )
                 # أرسل للأدمن أزرار القبول/الرفض
                 kb = [
-                    [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{user_id}_{purchase_id}_{email}")],
-                    [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{user_id}_{purchase_id}")]
+                    [InlineKeyboardButton(f"✅ قبول {email}", callback_data=f"accept_refund_{username}_{purchase_id}_{email}")],
+                    [InlineKeyboardButton(f"❌ رفض {email}", callback_data=f"reject_refund_{username}_{email}")]
                 ]
                 await context.bot.send_message(
                     chat_id=ADMIN_ID1,
@@ -2774,11 +2775,12 @@ async def request_refund(update: Update, context: CallbackContext):
     
     message_text = update.message.text.strip()
     print(message_text)
+    username = context.user_data.get("username_login")
     if message_text.startswith("/request_refund"):
         _, acc_id, email = message_text.split(" ")
         print(email)
         user_id = update.message.chat_id
-        username = context.user_data.get("username_login")
+        
         cursor.execute(
             "SELECT id,balance, credit, language, referrer_id FROM users WHERE username = ?",
             (username,)
@@ -2809,7 +2811,7 @@ async def request_refund(update: Update, context: CallbackContext):
 
         await context.bot.send_message(
             chat_id=ADMIN_ID1,
-            text=f"🔔 **طلب استرجاع حساب**\n\n👤 **المستخدم:** {user_id}\n📧 **البريد:** {email}\n📌 **هل تريد قبول الطلب؟**",
+            text=f"🔔 **طلب استرجاع حساب**\n\n👤 **المستخدم:** {username}\n📧 **البريد:** {email}\n📌 **هل تريد قبول الطلب؟**",
             parse_mode="Markdown",
             reply_markup=reply_markup
         )
@@ -2909,7 +2911,7 @@ async def reject_refund(update: Update, context: CallbackContext):
     await query.answer()
     data = query.data.split("_")
     username = data[2]
-    email = data[4]
+    email = data[3]
     cursor.execute(
         "SELECT id,balance, credit, language, referrer_id FROM users WHERE username = ?",
         (username,)
