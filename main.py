@@ -1777,7 +1777,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
             "❌ الصيغة غير صحيحة. مثال: `@username 5000`", parse_mode="Markdown"
         )
 
-    username, amt_str = text[0].lstrip("@"), text[1]
+    username1, amt_str = text[0].lstrip("@"), text[1]
     try:
         amount = float(amt_str)
         if amount <= 0:
@@ -1789,7 +1789,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
     # جلب بيانات المرسل
-    cursor.execute("SELECT balance, language FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT balance, language FROM users WHERE username = ?", (username1,))
     sender = cursor.fetchone()
     if not sender:
         context.user_data.pop("current_state", None)
@@ -1797,7 +1797,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     sender_balance, lang = sender
 
     # جلب بيانات المستلم
-    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT id FROM users WHERE username = ?", (username1,))
     recipient = cursor.fetchone()
     if not recipient:
         context.user_data.pop("current_state", None)
