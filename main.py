@@ -237,7 +237,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("referrer_id",None)
     username = context.user_data.get("username_login",None)
     args = context.args
-     if user_id == ADMIN_ID or user_id ==ADMIN_ID1:
+    if user_id == ADMIN_ID or user_id ==ADMIN_ID1:
         await admin_panel(update, context)
         return
     cursor.execute("SELECT chat_id FROM banned_users WHERE username = ?", (username,))
