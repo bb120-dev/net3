@@ -1789,7 +1789,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
     # جلب بيانات المرسل
-    cursor.execute("SELECT balance, language FROM users WHERE username = ?", (username1,))
+    cursor.execute("SELECT balance, language FROM users WHERE username = ?", (username,))
     sender = cursor.fetchone()
     if not sender:
         context.user_data.pop("current_state", None)
