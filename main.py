@@ -1795,7 +1795,7 @@ async def process_gift_balance(update: Update, context: ContextTypes.DEFAULT_TYP
     if not sender:
         context.user_data.pop("current_state", None)
         return await update.message.reply_text("❌ لم يتم العثور على بيانات حسابك.")
-    sender_balance, lang = sender
+    id, sender_balance, lang = sender
 
     # جلب بيانات المستلم
     cursor.execute("SELECT id FROM users WHERE username = ?", (username1,))
