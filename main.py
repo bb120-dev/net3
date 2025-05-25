@@ -296,22 +296,36 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @require_not_banned
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str):
     user_id = update.effective_chat.id
-    username = context.user_data.get("username_login")
+    username = context.user_data.get("username_login", "")
     messages = {
         "ar": f"👋 مرحبًا <b>{username}</b> في بوت بيع الحسابات!\nاختر من القائمة أدناه:",
         "en": f"👋 Welcome <b>{username}</b> to the account selling bot!\nChoose from the menu below:"
     }
 
+    # نصوص الأزرار
+    btn_check   = "فحص جيميل (مجاني) 🕵‍♂🔥" if lang == "ar" else "Check Gmail (Free) 🕵‍♂🔥"
+    btn_balances= "💰 الأرصدة"         if lang == "ar" else "💰 Balances"
+    btn_buy     = "شراء حساب 🛒"        if lang == "ar" else "Buy Account 🛒"
+    btn_temp    = "بريد وهمي (مجاني) ⌛🔥" if lang == "ar" else "📩 Temp Mail (Free) ⌛🔥"
+    btn_unlock  = "فك حساب 🔓"          if lang == "ar" else "Unlock Account 🔓"
+    btn_restore = "استرجاع ايميل ♻"     if lang == "ar" else "🔄 Restore Email ♻"
+    btn_about   = "حول ℹ"              if lang == "ar" else "About ℹ"
+
+    # بناء لوحة الأزرار
     keyboard = [
-        [KeyboardButton("فحص جيميل" if lang == "ar" else "cheak Gmail"),
-         KeyboardButton("💰 الأرصدة" if lang == "ar" else "💰 Balances")],
-        [KeyboardButton("شراء حساب" if lang == "ar" else "Buy Account")],
-        [KeyboardButton("فك حساب" if lang == "ar" else "Unlock account"), KeyboardButton("بريد وهمي" if lang == "ar" else "📩 Temp Mail")
-         ],
-        [KeyboardButton("استرجاع ايميل" if lang == "ar" else "Recover account"), KeyboardButton("حول" if lang == "ar" else "About")]
+        [KeyboardButton(btn_check),    KeyboardButton(btn_balances)],
+        [KeyboardButton(btn_buy)],
+        [KeyboardButton(btn_temp),     KeyboardButton(btn_unlock)],
+        [KeyboardButton(btn_restore),  KeyboardButton(btn_about)],
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(messages[lang], reply_markup=reply_markup ,parse_mode="HTML")
+
+    # إرسال الرسالة مع لوحة الأزرار
+    await update.message.reply_text(
+        messages[lang],
+        reply_markup=reply_markup,
+        parse_mode="HTML"
+    )
 @require_not_banned
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -447,23 +461,41 @@ async def general_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ######################################إدارة الحسابات####################################################
 @require_not_banned
 async def show_balance_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_chat.id
     username = context.user_data.get("username_login")
+    # جلب لغة المستخدم
     try:
-        cursor.execute("SELECT language FROM users WHERE username = ?", (username,))
+        cursor.execute(
+            "SELECT language FROM users WHERE username = ?", 
+            (username,)
+        )
         lang = cursor.fetchone()[0]
-        keyboard = [
-            [KeyboardButton("رصيدي" if lang == "ar" else "My Balance")],
-            [KeyboardButton("شحن الرصيد" if lang == "ar" else "Recharge Balance")],
-            [KeyboardButton("إهداء رصيد" if lang == "ar" else "Gift Balance")],
-            [KeyboardButton("العودة" if lang == "ar" else "Back")]
-        ]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
-        message = "💰 اختر ما تريد:" if lang == "ar" else "💰 Choose an option:"
-        await update.message.reply_text(message, reply_markup=reply_markup)
-    except:
-        await update.message.reply_text("🚫 لا تملك الصلاحية لاستخدام هذا الأمر.")
+    except Exception:
+        await update.message.reply_text("🚫 حدث خطأ داخلي، حاول مرة أخرى لاحقًا.")
+        return
+
+    # أولاً: عرض الرصيد تلقائيًا
+    await check_balance(update, context)
+
+    # ثم إعداد رسالة القائمة بدون زر "رصيدي"
+    messages = {
+        "ar": "الأرصدة: 🟥\nاختر ما يلي:",
+        "en": "Balances: 🟥\nChoose one of the following:"
+    }
+
+    btn_charge = "شحن الرصيد – ⚡"    if lang == "ar" else "Recharge Balance – ⚡"
+    btn_gift   = "إهداء رصيد – 🎁"    if lang == "ar" else "Gift Balance – 🎁"
+    btn_back   = "العودة – ↩"        if lang == "ar" else "Back – ↩"
+
+    keyboard = [
+        [KeyboardButton(btn_charge),KeyboardButton(btn_gift)],
+        [KeyboardButton(btn_back)],
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(
+        messages[lang],
+        reply_markup=reply_markup
+    )
 
 #############################3
 @require_not_banned
@@ -1428,21 +1460,16 @@ async def show_currency_rates(update: Update, context: ContextTypes.DEFAULT_TYPE
 ################################################################################################################
 @require_not_banned
 async def buy_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_chat.id
     username = context.user_data.get("username_login")
+
+    # 1. جلب لغة المستخدم
     cursor.execute("SELECT language FROM users WHERE username = ?", (username,))
-    result = cursor.fetchone()
-    lang = result[0] if result else "ar"
+    row = cursor.fetchone()
+    lang = row[0] if row else "ar"
 
-    messages = {
-        "ar": "💰 اختر نوع الحساب الذي ترغب بشرائه:\n\n",
-        "en": "💰 Select the type of account you want to buy:\n\n"
-    }
-
-    # جلب الأنواع المتاحة من accounts
+    # 2. جلب عدد الحسابات المتوفّرة
     cursor.execute("SELECT account_type, COUNT(*) FROM accounts GROUP BY account_type")
     accounts = dict(cursor.fetchall())
-
     account_types = {
         "G1": accounts.get("G1", 0),
         "G2": accounts.get("G2", 0),
@@ -1450,72 +1477,93 @@ async def buy_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "OUT": accounts.get("out", 0)
     }
 
-    # 📂 الحسابات المتوفرة
-    if lang == "ar":
-        messages[lang] += "📂 **الحسابات المتاحة:**\n\n"
-        for acc, count in account_types.items():
-            messages[lang] += f"🔹 **{acc}**: {count} حساب\n"
-    else:
-        messages[lang] += "📂 **Available Accounts:**\n\n"
-        for acc, count in account_types.items():
-            messages[lang] += f"🔹 **{acc}**: {count} available\n"
-
-    # 💱 إضافة أسعار العملات
+    # 3. جلب أسعار العملات
     cursor.execute("SELECT currency, rate FROM currency_rates ORDER BY currency")
     rates = cursor.fetchall()
 
-    if rates:
-        if lang == "ar":
-            messages[lang] += "\n💱 **أسعار العملات الحالية:**\n\n"
-            for currency, rate in rates:
-                messages[lang] += f"🔹 1 {currency} = {rate} ليرة سورية\n"
-        else:
-            messages[lang] += "\n💱 **Current Currency Rates:**\n\n"
-            for currency, rate in rates:
-                messages[lang] += f"🔹 1 {currency} = {rate} SYP\n"
+    # 4. بناء الرسالة النصية
+    if lang == "ar":
+        header = "شراء حساب: 🟥"
+        msg = "💰 اختر نوع الحساب الذي ترغب بشرائه:\n\n"
+        msg += "📂 **الحسابات المتاحة:**\n"
+        for acc, cnt in account_types.items():
+            msg += f"🔹 **{acc}**: {cnt} حساب\n"
+        if rates:
+            msg += "\n💱 **أسعار العملات الحالية:**\n"
+            for curr, rate in rates:
+                msg += f"🔹 1 {curr} = {rate} ليرة سورية\n"
 
-    # لوحة الأزرار
-    keyboard_ar = [
-        [KeyboardButton("شراء حساب Gmail درجة أولى"), KeyboardButton("شراء حساب Gmail درجة ثانية")],
-        [KeyboardButton("شراء حساب Outlook"), KeyboardButton("شراء حساب Hotmail")],
-        [KeyboardButton("العودة")]
-    ]
-    keyboard_en = [
-        [KeyboardButton("Buy Gmail First-Class Account"), KeyboardButton("Buy Gmail Second-Class Account")],
-        [KeyboardButton("Buy Outlook Account"), KeyboardButton("Buy Hotmail Account")],
-        [KeyboardButton("Back")]
-    ]
+        keyboard = [
+            [KeyboardButton("شراء حساب Gmail درجة أولى⭐🅶"),
+             KeyboardButton("شراء حساب Gmail درجة ثانية🅶")],
+            [KeyboardButton("شراء حساب 🅾Outlook"),
+             KeyboardButton("شراء حساب 🅷Hotmail")],
+            [KeyboardButton("العودة – ↩")]
+        ]
+    else:
+        header = "Buy Account: 🟥"
+        msg = "💰 Select the type of account you want to buy:\n\n"
+        msg += "📂 **Available Accounts:**\n"
+        for acc, cnt in account_types.items():
+            msg += f"🔹 **{acc}**: {cnt} available\n"
+        if rates:
+            msg += "\n💱 **Current Currency Rates:**\n"
+            for curr, rate in rates:
+                msg += f"🔹 1 {curr} = {rate} SYP\n"
 
-    reply_markup = ReplyKeyboardMarkup(keyboard_ar if lang == "ar" else keyboard_en, resize_keyboard=True)
-    await update.message.reply_text(messages[lang], parse_mode="Markdown", reply_markup=reply_markup)
+        keyboard = [
+            [KeyboardButton("Buy Gmail First-Class Account ⭐🅶"),
+             KeyboardButton("Buy Gmail Second-Class Account 🅶")],
+            [KeyboardButton("Buy 🅾 Outlook Account"),
+             KeyboardButton("Buy 🅷 Hotmail Account")],
+            [KeyboardButton("Back – ↩")]
+        ]
+
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    # 5. عرض العنوان
+    await update.message.reply_text(header)
+    # 6. عرض التفاصيل (بـ Markdown) ثم الأزرار
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
+
+
 @require_not_banned
 async def select_account_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    account_type_text = update.message.text.strip()
+    text = update.message.text.strip()
+
+    # 1. التعاطي مع زر العودة
+    if text in ("العودة – ↩", "Back – ↩"):
+        return await return_to_prev(update, context)
+
+    # 2. تعيين mapping كامل بالنصوص مع الإيموجيات
     mapping = {
-        "شراء حساب Gmail درجة أولى": "G1",
-        "شراء حساب Gmail درجة ثانية": "G2",
-        "Buy Gmail First-Class Account": "G1",
-        "Buy Gmail Second-Class Account": "G2",
-        "شراء حساب Outlook": "out",
-        "Buy Outlook Account": "out",
-        "شراء حساب Hotmail": "hot",
-        "Buy Hotmail Account": "hot"
+        "شراء حساب Gmail درجة أولى⭐🅶": "G1",
+        "شراء حساب Gmail درجة ثانية🅶": "G2",
+        "شراء حساب 🅾Outlook":           "out",
+        "شراء حساب 🅷Hotmail":           "hot",
+        "Buy Gmail First-Class Account ⭐🅶": "G1",
+        "Buy Gmail Second-Class Account 🅶":  "G2",
+        "Buy 🅾 Outlook Account":             "out",
+        "Buy 🅷 Hotmail Account":             "hot",
     }
-    internal_type = mapping.get(account_type_text)
+
+    internal_type = mapping.get(text)
     if not internal_type:
-        await update.message.reply_text("❌ نوع الحساب غير معروف.")
-        return
+        return await update.message.reply_text("❌ نوع الحساب غير معروف.")
+
     context.user_data["selected_account_type"] = internal_type
 
-    # عرض لوحة مفاتيح لتحديد الكمية
-    keyboard = [
+    # 3. عرض لوحة لتحديد العدد
+    qty_buttons = [
         [KeyboardButton("1"), KeyboardButton("3")],
         [KeyboardButton("5"), KeyboardButton("10")],
-        [KeyboardButton("العودة")]
+        [KeyboardButton("العودة – ↩") if context.user_data.get("lang","ar")=="ar"
+             else KeyboardButton("Back – ↩")]
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(qty_buttons, resize_keyboard=True)
+
     await update.message.reply_text(
-        f"تم اختيار الحساب: {account_type_text}\nالرجاء تحديد العدد المطلوب:",
+        f"📦 تم اختيار: {text}\n\n🔢 حدد الكمية المطلوبة:",
         reply_markup=reply_markup
     )
 @require_not_banned
@@ -1928,32 +1976,40 @@ def get_amount_by_transaction_id(transaction_id: str) -> float:
 # ---------- دالة اختيار وسيلة الدفع ----------
 @require_not_banned
 async def recharge_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_chat.id
     username = context.user_data.get("username_login")
+    # 1. جلب لغة المستخدم
     cursor.execute("SELECT language FROM users WHERE username = ?", (username,))
-    result = cursor.fetchone()
-    lang = result[0] if result else "ar"
+    row = cursor.fetchone()
+    lang = row[0] if row else "ar"
 
-    messages = {
-        "ar": "💰 اختر طريقة الدفع لشحن رصيدك:",
-        "en": "💰 Select a payment method to recharge your balance:"
-    }
+    # 2. بناء العنوان والصفوف حسب اللغة
+    if lang == "ar":
+        header = "شحن الرصيد:🟥"
+        keyboard = [
+            [KeyboardButton("سيريتيل كاش –")],
+            [KeyboardButton("بايير 🅿 - Payeer")],
+            [KeyboardButton("كوين اكس CoinX –")],
+            [KeyboardButton("بنك بيمو –🏦")],
+            [KeyboardButton("كريبتو 🌐")]
+        ]
+    else:
+        header = "Recharge Balance:🟥"
+        keyboard = [
+            [KeyboardButton("Syriatel Cash –")],
+            [KeyboardButton("Payeer 🅿")],
+            [KeyboardButton("CoinX –")],
+            [KeyboardButton("Bemo Bank –🏦")],
+            [KeyboardButton("Crypto 🌐")]
+        ]
 
-    keyboard_ar = [
-        [KeyboardButton("سيريتيل كاش"), KeyboardButton("Payeer")],
-        [KeyboardButton("USDT"), KeyboardButton("CoinX")],
-        [KeyboardButton("بيمو"), KeyboardButton("العودة")]
-    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    keyboard_en = [
-        [KeyboardButton("Syriatel Cash"), KeyboardButton("Payeer")],
-        [KeyboardButton("USDT"), KeyboardButton("CoinX")],
-        [KeyboardButton("Bemo"), KeyboardButton("Back")]
-    ]
-
-    reply_markup = ReplyKeyboardMarkup(keyboard_ar if lang == "ar" else keyboard_en, resize_keyboard=True)
-    await update.message.reply_text(messages[lang], reply_markup=reply_markup)
-
+    # 3. إرسال العنوان ثم لوحة الأزرار
+    await update.message.reply_text(header)
+    await update.message.reply_text(
+        "💰 اختر طريقة الدفع:" if lang == "ar" else "💰 Select a payment method:",
+        reply_markup=reply_markup
+    )
 def create_coinx_signature(method, uri, body, timestamp, secret_key):
     to_sign = f"{timestamp}{method.upper()}{uri}{body}"
     return hmac.new(secret_key.encode(), to_sign.encode(), hashlib.sha256).hexdigest()
@@ -3044,8 +3100,11 @@ async def create_temp_mail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['temp_mail_token'] = token
     context.user_data['temp_mail_email'] = email
 
-    await update.message.reply_text(f"📧 تم إنشاء بريد وهمي لك: {email}\n\n📭 سيتم إعلامك عند وصول أول رسالة.")
-
+    await update.message.reply_text(
+    f"📧 تم إنشاء بريد وهمي لك: {email}\n\n"
+    f"⏳ مدة صلاحية البريد: ساعتان\n"
+    f"📭 جميع الرسائل التي تصلك على هذا البريد ستظهر هنا تلقائيًا"
+    )
     # Start monitoring the inbox
     asyncio.create_task(monitor_inbox(update, context, token))
 @require_not_banned
@@ -3127,63 +3186,73 @@ async def process_email_check(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text("\n".join(results))
 #########################################################################
 @require_not_banned
-async def Unlock_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def unlock_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_chat.id
     username = context.user_data.get("username_login")
+
     try:
-        # ✅ 1. جلب اللغة
-        cursor.execute("SELECT language FROM users WHERE username = ?", (username,))
-        lang_row = cursor.fetchone()
-        lang = lang_row[0] if lang_row else "ar"
+        # 1. جلب لغة المستخدم
+        cursor.execute(
+            "SELECT language FROM users WHERE username = ?",
+            (username,)
+        )
+        row = cursor.fetchone()
+        lang = row[0] if row else "ar"
 
-        # ✅ 2. جلب الأسعار من قاعدة البيانات
-        cursor.execute("SELECT type, price FROM unlock_prices WHERE type IN ('gmail', 'hotmail', 'outlook')")
-        prices_raw = cursor.fetchall()
-        print(prices_raw)
-        prices = {t: p for t, p in prices_raw}
-        print(prices)
-
+        # 2. جلب الأسعار
+        cursor.execute("""
+            SELECT type, price
+            FROM unlock_prices
+            WHERE type IN ('gmail', 'hotmail', 'outlook')
+        """)
+        prices = {t: p for t, p in cursor.fetchall()}
         gmail_price = prices.get('gmail', 0.0)
         hotmail_price = prices.get('hotmail', 0.0)
         outlook_price = prices.get('outlook', 0.0)
 
-        # ✅ 3. إعداد النص حسب اللغة
+        # 3. إعداد الرسالة والأزرار
         if lang == "ar":
             msg = (
-                "🔓 اختر نوع الحساب الذي تريد فكه:\n\n"
-                f"📧 Gmail: {gmail_price} دولار\n"
-                f"🔥 Hotmail: {hotmail_price} دولار\n"
-                f"📨 Outlook: {outlook_price} دولار"
+                "فك قفل ايميل: 🟥\n"
+                f" 🅶 Gmail: {gmail_price} دولار\n"
+                f" 🅷 Hotmail: {hotmail_price} دولار\n"
+                f" 🅾 Outlook: {outlook_price} دولار"
             )
             gmail_btn = "Gmail"
-            hot_btn = "Hotmail"
-            out_btn = "Outlook"
-            back_btn= "العودة"
+            hot_btn   = "Hotmail"
+            out_btn   = "Outlook"
+            back_btn  = "العودة – ↩"
         else:
             msg = (
-                "🔓 Choose the type of account to unlock:\n\n"
-                f"📧 Gmail: ${gmail_price}\n"
-                f"🔥 Hotmail: ${hotmail_price}\n"
-                f"📨 Outlook: ${outlook_price}"
+                "Unlock Email: 🟥\n"
+                f" 🅶 Gmail: ${gmail_price}\n"
+                f" 🅷 Hotmail: ${hotmail_price}\n"
+                f" 🅾 Outlook: ${outlook_price}"
             )
             gmail_btn = "Gmail"
-            hot_btn = "Hotmail"
-            out_btn = "Outlook"
-            back_btn = "Back"
+            hot_btn   = "Hotmail"
+            out_btn   = "Outlook"
+            back_btn  = "Back – ↩"
 
-        # ✅ 4. عرض الأزرار بدون سعر
+        # 4. بناء لوحة الأزرار (من دون أسعار)
         keyboard = [
             [KeyboardButton(gmail_btn)],
             [KeyboardButton(hot_btn)],
             [KeyboardButton(out_btn)],
-            [KeyboardButton(back_btn)]
+            [KeyboardButton(back_btn)],
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+        # 5. إرسال الرسالة مع الأزرار
         await update.message.reply_text(msg, reply_markup=reply_markup)
 
     except Forbidden:
+        # المستخدم حظر البوت
         print(f"⚠️ المستخدم {user_id} حظر البوت.")
+    except Exception as e:
+        # أي خطأ آخر في التنفيذ
+        print(f"❌ خطأ داخلي عند فك القفل: {e}")
+        await update.message.reply_text("🚫 حدث خطأ، حاول مرة أخرى لاحقًا.")
 
 def get_user_balance(username):
     cursor.execute("SELECT balance,credit FROM users WHERE username = ?", (username,))
@@ -3476,7 +3545,61 @@ def main():
 
 
     app.add_handler(CommandHandler("start", start))
-    #إدارة الحسابات للادمن
+    app.add_handler(MessageHandler(filters.Regex(r'^(حول ℹ|About ℹ)$'), show_about_bot))
+    app.add_handler(MessageHandler(filters.Regex(r'^(فحص جيميل \(مجاني\) 🕵‍♂🔥|Check Gmail \(Free\) 🕵‍♂🔥)$'), request_emails_for_check))
+    
+    app.add_handler(MessageHandler(filters.Regex(r'^(شراء حساب 🛒|Buy Account 🛒)$'), buy_account))
+    app.add_handler(MessageHandler(filters.Regex(r'^(📩 Temp Mail \(Free\) ⌛🔥|بريد وهمي \(مجاني\) ⌛🔥)$'), create_temp_mail))
+    app.add_handler(MessageHandler(filters.Regex(r'^(فك حساب 🔓|Unlock Account 🔓)$'), unlock_account))
+    app.add_handler(MessageHandler(filters.Regex(r'^(🔄 Restore Email ♻|استرجاع ايميل ♻)$'), show_retrieve_menu1))
+    app.add_handler(MessageHandler(filters.Regex(r'^(🛠️ تعديل اسعار فك حساب|🛠️ Edit Unlock Prices)$'), request_unlock_price_update))
+    app.add_handler(MessageHandler(filters.Regex("^(💰 الأرصدة|💰 Balances)$"), show_balance_menu))
+    app.add_handler(
+    MessageHandler(
+        filters.Regex(r'^(إهداء رصيد – 🎁|Gift Balance – 🎁)$'),
+        ask_for_gift_balance
+    )
+    )
+
+    # Back to previous menu
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r'^(العودة – ↩|Back – ↩)$'),
+            return_to_prev
+        )
+    )
+
+    # Recharge Balance
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r'^(شحن الرصيد – ⚡|Recharge Balance – ⚡)$'),
+            recharge_balance
+        )
+    )
+    app.add_handler(
+    MessageHandler(
+        filters.Regex(
+            r'^(شراء حساب Gmail درجة أولى⭐🅶|'
+            r'شراء حساب Gmail درجة ثانية🅶|'
+            r'شراء حساب 🅾Outlook|'
+            r'شراء حساب 🅷Hotmail|'
+            r'Buy Gmail First-Class Account ⭐🅶|'
+            r'Buy Gmail Second-Class Account 🅶|'
+            r'Buy 🅾 Outlook Account|'
+            r'Buy 🅷 Hotmail Account)$'
+        ),
+        select_account_type
+    )
+    )
+    app.add_handler(
+    MessageHandler(
+        filters.Regex(
+            r'^(سيريتيل كاش –|بايير 🅿 - Payeer|كوين اكس CoinX –|بنك بيمو –🏦|كريبتو 🌐|'
+            r'Syriatel Cash –|Payeer 🅿|CoinX –|Bemo Bank –🏦|Crypto 🌐)$'
+        ),
+        payment_details
+    )
+    )
     app.add_handler(MessageHandler(filters.Regex("^(إدارة الحسابات)$"), manage_accounts))
     app.add_handler(MessageHandler(filters.Regex("^(إضافة حسابات)$"), add_accounts))
     app.add_handler(MessageHandler(filters.Regex("^(عرض الحسابات)$"), show_accounts1)) 
@@ -3504,22 +3627,21 @@ def main():
     app.add_handler(MessageHandler(filters.Regex("^(إحالة صديق|Refer a Friend)$"), referral_link))
     app.add_handler(MessageHandler(filters.Regex("^(رصيدي|My Balance)$"), check_balance))
     ######################################################################################################
-    app.add_handler(MessageHandler(filters.Regex("^(رصيدي|My Balance)$"), check_balance))
+    
     #####################################################################################################
     app.add_handler(MessageHandler(filters.Regex("^(أسعار الحسابات|Account Prices)$"), show_currency_rates))
     ##########################################################################################
-    app.add_handler(MessageHandler(filters.Regex("^(شراء حساب|Buy Account)$"), buy_account))
-    app.add_handler(MessageHandler(filters.Regex("^(شراء حساب Gmail درجة أولى|شراء حساب Gmail درجة ثانية|شراء حساب Outlook|شراء حساب Hotmail|Buy Gmail First-Class Account|Buy Gmail Second-Class Account|Buy Outlook Account|Buy Hotmail Account)$"), select_account_type))
+    #app.add_handler(MessageHandler(filters.Regex("^(شراء حساب|Buy Account)$"), buy_account))
+    
     app.add_handler(MessageHandler(filters.Regex("^(1|3|5|10)$"), process_quantity)) 
     app.add_handler(CallbackQueryHandler(buy_accounts, pattern="^buy_"))
-    app.add_handler(MessageHandler(filters.Regex("^(العودة|Back)$"), return_to_prev))
+    
     ##########################################################################################################
-    app.add_handler(MessageHandler(filters.Regex("^(إهداء رصيد|Gift Balance)$"), ask_for_gift_balance))
+    
     ############################################################################################################
-    app.add_handler(MessageHandler(filters.Regex("^(بريد وهمي|Temp Mail)$"), create_temp_mail))
     ##############################################################################################################
-    app.add_handler(MessageHandler(filters.Regex("^(شحن الرصيد|Recharge Balance)$"), recharge_balance))
-    app.add_handler(MessageHandler(filters.Regex("^(سيريتيل كاش|Payeer|USDT|CoinX|بيمو|Syriatel Cash|Payeer|USDT|CoinX|Bemo)$"), payment_details))
+    
+    
     app.add_handler(MessageHandler(filters.Regex("^(bep20|trc20|coinx|assent)$"), handle_coinx_network))
     app.add_handler(CallbackQueryHandler(bemo_accept, pattern="^bemo_accept_"))
     app.add_handler(CallbackQueryHandler(bemo_reject, pattern="^bemo_reject_"))
@@ -3537,7 +3659,7 @@ def main():
     app.add_handler(CallbackQueryHandler(accept_refund, pattern="^accept_refund_"))
     app.add_handler(CallbackQueryHandler(reject_refund, pattern="^reject_refund_"))
     #app.add_handler(CallbackQueryHandler(hide_accounts, pattern="^hide_accounts$"))
-    app.add_handler(MessageHandler(filters.Regex("^(حول|ِAbout)$"), show_about_bot))
+    #app.add_handler(MessageHandler(filters.Regex("^(حول|ِAbout)$"), show_about_bot))
     app.add_handler(MessageHandler(filters.Regex("^(📞 تواصل مع الدعم|📞 Contact Support)$"), contact_admin_handler))
     app.add_handler(MessageHandler(filters.Regex("^(📄 الأسئلة الشائعة|📄 FAQ)$"), show_faq))
 
@@ -3545,7 +3667,7 @@ def main():
     ######################################3
     app.add_handler(MessageHandler(filters.Regex("^(فحص جيميل|Check Gmail)$"), request_emails_for_check))
     ######################################################3
-    app.add_handler(MessageHandler(filters.Regex("^(فك حساب|Unlock account)$"), Unlock_account))
+    app.add_handler(MessageHandler(filters.Regex("^(فك حساب|Unlock account)$"), unlock_account))
     app.add_handler(MessageHandler(filters.Regex("^(Gmail|Hotmail|Outlook)$"), unlock_account_type_handler))
     app.add_handler(CallbackQueryHandler(handle_unlock_confirm, pattern="^unlock_confirm_"))
     app.add_handler(CallbackQueryHandler(handle_unlock_reject, pattern="^unlock_reject_"))
@@ -3561,7 +3683,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_logout_decision, pattern="^logout_"))
     app.add_handler(CommandHandler("balance", check_balance))
     app.add_handler(CommandHandler("language", change_language))
-    app.add_handler(MessageHandler(filters.Regex("^(💰 الأرصدة|💰 Balances)$"), show_balance_menu))
+    
     app.add_handler(MessageHandler(filters.Regex("^(🔍 البحث عن مستخدم)$"), ask_for_username_to_search))
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, general_handler)
@@ -3569,3 +3691,4 @@ def main():
     app.run_polling(timeout=10, poll_interval=1, allowed_updates=Update.ALL_TYPES)
 if __name__ == "__main__":
     main()
+
